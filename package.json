@@ -1,0 +1,44 @@
+{
+  "name": "typed-hyperdb",
+  "version": "1.0.0",
+  "description": " A hyperdb wrapper that lets you register schemas and create typed records ",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "standard && tape test/*.js && rimraf test/test-storage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrewosh/typed-hyperdb.git"
+  },
+  "keywords": [
+    "hyperdb",
+    "types",
+    "schema"
+  ],
+  "author": "Andrew Osheroff <andrewosh@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/andrewosh/typed-hyperdb/issues"
+  },
+  "homepage": "https://github.com/andrewosh/typed-hyperdb#readme",
+  "devDependencies": {
+    "hyperdb": "^3.1.2",
+    "mkdirp": "^0.5.1",
+    "random-access-memory": "^3.0.0",
+    "rimraf": "^2.6.2",
+    "standard": "^11.0.1",
+    "tape": "^4.9.1"
+  },
+  "dependencies": {
+    "async-each": "^1.0.1",
+    "inherits": "^2.0.3",
+    "lodash": "^4.17.10",
+    "protocol-buffers": "^4.0.4",
+    "protocol-buffers-schema": "^3.3.2",
+    "uuid": "^3.2.1"
+  }
+}
