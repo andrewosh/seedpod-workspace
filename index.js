@@ -368,26 +368,33 @@ TypedHyperDB.prototype._getTypeAndSchema = function (typeInfo, cb) {
 
 TypedHyperDB.prototype._generateRecordId = function (record, typeDescriptor) {
   // TODO: should the ID hash the record contents? Prob not necessary.
-  return uuid()
+  return record._id || uuid()
 }
 
-TypedHyperDB.prototype.insert = function (type, data, cb) {
+TypedHyperDB.prototype._findAllRecords = function (type, data, cb) {
   var self = this
 
   var typeInfo = Type.getInfo(type)
 
+  console.log('in _findAllRecords')
+
   this._getTypeAndSchema(typeInfo, function (err, type, schema) {
     if (err) return cb(err)
 
-    data._id = data._id || self._generateRecordId(data, type)
+    data._id = self._generateRecordId(data, type)
 
-    var recordPath = naming.record(type.packageName, type.name, type.version.major, data._id)
-    var recordFields = Object.keys(type.fieldTypeMap)
+    console.log('here, data._id:', data._id)
+    let recordPath = naming.record(type.packageName, type.name, type.version.major, data._id)
+    let recordFields = Object.keys(type.fieldTypeMap)
+
+    let rootRecord = [recordPath, schema[type.name], data]
 
     if (recordFields.length === 0) {
-      // This record does not have any nested record fields. Finish insertion.
-      return finishInsertion(recordPath, schema[type.name], data)
+      // This record does not have any nested record fields.
+      console.log('no nested fields')
+      return finishSearch([rootRecord])
     } else {
+      console.log('nested fields')
       // This record has nested record fields. Insert them and replace with their IDs.
       asyncMap(recordFields, function (field, next) {
         var nestedType = type.fieldTypeMap[field]
@@ -400,32 +407,49 @@ TypedHyperDB.prototype.insert = function (type, data, cb) {
         // TODO: This will be too expensive with many records -- batch.
         if (nestedType.repeated) {
           asyncMap(nestedData, function (nestedRecord, next) {
-            return self.insert(nestedType.name, nestedRecord, next)
-          }, function (err, ids) {
+            nestedRecord._id = self._generateRecordId(nestedRecord, nestedType)
+            return self._findAllRecords(nestedType.name, nestedRecord, (err, records) => {
+              if (err) return next(err)
+              return next(null, [nestedRecord._id, records])
+            })
+          }, function (err, recordsAndRoots) {
             if (err) return next(err)
-            return next(null, ids)
+            _.set(data, field, recordsAndRoots.map(rnr => rnr[0]))
+            return next(null, [].concat(...recordsAndRoots.map(rnr => rnr[1])))
           })
         } else {
-          return self.insert(nestedType.name, nestedData, next)
+          nestedData._id = self._generateRecordId(nestedData, nestedType)
+          _.set(data, field, nestedData._id)
+          return self._findAllRecords(nestedType.name, nestedData, next)
         }
-      }, function (err, fieldIds) {
+      }, function (err, records) {
         if (err) return cb(err)
-        for (var i = 0; i < recordFields.length; i++) {
-          if (fieldIds[i] !== null) {
-            _.set(data, recordFields[i], fieldIds[i])
-          }
-        }
-        return finishInsertion(recordPath, schema[type.name], data)
+        records.push([rootRecord])
+        records = [].concat(...records)
+        return finishSearch(records)
       })
     }
   })
 
-  function finishInsertion (path, encoding, data) {
-    self.db.put(path, encoding.encode(data), function (err) {
-      if (err) return cb(err)
-      return cb(null, data._id)
-    })
+  function finishSearch (records) {
+    return cb(null, records, data._id)
   }
+}
+
+TypedHyperDB.prototype.insert = function (type, data, cb) {
+  this._findAllRecords(type, data, (err, records, rootId) => {
+    if (err) return cb(err)
+    let batch = records.map(record => {
+      return {
+        key: record[0],
+        value: record[1].encode(record[2])
+      }
+    })
+    this.db.batch(batch, err => {
+      if (err) return cb(err)
+      return cb(null, rootId)
+    })
+  })
 }
 
 TypedHyperDB.prototype.get = function (type, id, cb) {
