@@ -376,14 +376,11 @@ TypedHyperDB.prototype._findAllRecords = function (type, data, cb) {
 
   var typeInfo = Type.getInfo(type)
 
-  console.log('in _findAllRecords')
-
   this._getTypeAndSchema(typeInfo, function (err, type, schema) {
     if (err) return cb(err)
 
     data._id = self._generateRecordId(data, type)
 
-    console.log('here, data._id:', data._id)
     let recordPath = naming.record(type.packageName, type.name, type.version.major, data._id)
     let recordFields = Object.keys(type.fieldTypeMap)
 
@@ -391,10 +388,8 @@ TypedHyperDB.prototype._findAllRecords = function (type, data, cb) {
 
     if (recordFields.length === 0) {
       // This record does not have any nested record fields.
-      console.log('no nested fields')
       return finishSearch([rootRecord])
     } else {
-      console.log('nested fields')
       // This record has nested record fields. Insert them and replace with their IDs.
       asyncMap(recordFields, function (field, next) {
         var nestedType = type.fieldTypeMap[field]
