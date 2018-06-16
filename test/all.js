@@ -241,3 +241,66 @@ test('should be able to delete records', async t => {
     })
   })
 })
+
+test('changes feed should contain insertions', async t => {
+  let tdb = await create.one()
+  var id = null
+
+  tdb.on('change', ([{ data: { type, record } }]) => {
+    t.same(record._id, id)
+    create.close().then(() => {
+      t.end()
+    })
+  })
+
+  tdb.registerTypes(baseSchema, function (err, typesToVersions) {
+    t.error(err)
+    t.same(typesToVersions['Dog'], '1.0')
+    t.same(typesToVersions['Breed'], '1.0')
+    tdb.insert('animals.Dog', {
+      name: 'Heidi',
+      breed: {
+        name: 'German Shepherd',
+        populationCount: 100
+      }
+    }, function (err, _id) {
+      t.error(err)
+      t.true(_id)
+      id = _id
+    })
+  })
+})
+
+test('changes feed should contain deletions', async t => {
+  let tdb = await create.one()
+  var recordId = null
+
+  tdb.on('change', ([{ type, data }]) => {
+    if (type === 'delete') {
+      t.same(data.id, recordId)
+      create.close().then(() => {
+        t.end()
+      })
+    }
+  })
+
+  tdb.registerTypes(baseSchema, function (err, typesToVersions) {
+    t.error(err)
+    t.same(typesToVersions['Dog'], '1.0')
+    t.same(typesToVersions['Breed'], '1.0')
+    tdb.insert('animals.Dog', {
+      name: 'Heidi',
+      breed: {
+        name: 'German Shepherd',
+        populationCount: 100
+      }
+    }, function (err, _id) {
+      t.error(err)
+      t.true(_id)
+      recordId = _id
+      tdb.delete('animals.Dog', _id, err => {
+        t.error(err)
+      })
+    })
+  })
+})

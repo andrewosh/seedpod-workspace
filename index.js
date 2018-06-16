@@ -20,19 +20,23 @@ function TypedHyperDB (db, opts) {
   this.db = db
 
   // TODO: replace with an LRU cache.
+  // TODO: re-add caching.
   this._schemas = {}
   this._types = {}
 
   // Set in ready
   this.key = null
+  this._unwatch = null
 
-  this._ready = new Promise((resolve, reject) => {
-    this.db.ready().then(() => {
+  this._ready = new Promise(async (resolve, reject) => {
+    try {
+      await this.db.ready()
+      this._unwatch = await this._startWatching()
       this.key = this.db.key
       return resolve()
-    }).catch(err => {
+    } catch (err) {
       return reject(err)
-    })
+    }
   })
 
   this.ready = function (cb) {
@@ -45,6 +49,26 @@ function TypedHyperDB (db, opts) {
   }
 }
 inherits(TypedHyperDB, events.EventEmitter)
+
+TypedHyperDB.prototype._startWatching = async function () {
+  return this.db.watch(naming.RECORD_ROOT, (nodes) => {
+    var descriptor = Type.fromRecordPath(nodes[0].key)
+    this._getTypeAndSchema(descriptor, (err, type, schema) => {
+      if (err) throw err
+      var encoding = schema[type.name]
+      this.emit('change', nodes.map(n => {
+        return {
+          type: n.value ? 'update' : 'delete',
+          data: {
+            record: n.value ? encoding.decode(n.value) : null,
+            type: type,
+            id: descriptor.id
+          }
+        }
+      }))
+    })
+  })
+}
 
 TypedHyperDB.prototype._registerPackage = function (packageName, transformed, original, cb) {
   var self = this
@@ -82,7 +106,7 @@ TypedHyperDB.prototype._registerPackage = function (packageName, transformed, or
 TypedHyperDB.prototype._registerType = function (schema, typeInfo, cb) {
   var self = this
 
-  self._getType(typeInfo, function (err, type) {
+  self._getType(typeInfo, function (err, type, typeMetadata) {
     if (err) return cb(err)
     if (!type) {
       // This is the first time this type has been registered.
@@ -105,12 +129,12 @@ TypedHyperDB.prototype._registerType = function (schema, typeInfo, cb) {
             minor: type.version.minor + 1
           }
         }
-        return finishRegistration()
+        return finishRegistration(typeMetadata)
       })
     }
   })
 
-  function finishRegistration () {
+  function finishRegistration (typeMetadata) {
     // Check to see if any fields refer to Record types. If so, replace each field
     // with a string reference.
 
@@ -120,11 +144,14 @@ TypedHyperDB.prototype._registerType = function (schema, typeInfo, cb) {
     var typeMetadataPath = naming.typeMetadata(typeInfo.packageName, typeInfo.name)
     var typePath = naming.type(typeInfo.packageName, typeInfo.name, versionString)
 
+    typeMetadata = typeMetadata || {}
+    typeMetadata.latest = typeInfo.version
+    typeMetadata.latestMinor = typeMetadata.latestMinor || {}
+    typeMetadata.latestMinor[typeInfo.version.major] = typeInfo.version.minor
+
     self.db.put(typePath, messages.TypeRecord.encode(typeInfo), function (err) {
       if (err) return cb(err)
-      self.db.put(typeMetadataPath, messages.TypeMetadata.encode({
-        latest: typeInfo.version
-      }), function (err) {
+      self.db.put(typeMetadataPath, messages.TypeMetadata.encode(typeMetadata), function (err) {
         if (err) return cb(err)
         return cb(null, versionString)
       })
@@ -183,6 +210,18 @@ TypedHyperDB.prototype._registerType = function (schema, typeInfo, cb) {
   }
 }
 
+TypedHyperDB.prototype._mount = function (key, path, opts, cb) {
+  if (typeof opts === 'function') return this.mount(key, path, null, opts)
+  var self = this
+
+  this.ready(function (err) {
+    if (err) return cb(err)
+    return self.db.mount(key, path, opts, cb)
+  })
+}
+
+// BEGIN Public API
+
 TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
   if (typeof opts === 'function') return this.importPackages(key, packageNames, null, opts)
   opts = opts || {}
@@ -192,7 +231,7 @@ TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
     var isAliased = (packageName instanceof Array)
     var localPath = (isAliased) ? naming.package(packageName[1]) : naming.package(packageName)
     var remotePath = (isAliased) ? naming.package(packageName[0]) : localPath
-    self.mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
+    self._mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
   }, function (err) {
     if (err) return cb(err)
     return cb()
@@ -275,24 +314,24 @@ TypedHyperDB.prototype._getNoConflicts = function (path, encoding, makeError, cb
 TypedHyperDB.prototype._getType = function (typeInfo, cb) {
   var self = this
 
-  if (!typeInfo.version) {
-    // If the version isn't specified, use the latest version.
-    var metadataPath = naming.typeMetadata(typeInfo.packageName, typeInfo.name)
-    this._getNoConflicts(metadataPath, messages.TypeMetadata, function (metas) {
-      var error = new Error('Conflicting type metadata.')
-      error.conflictingMetadata = metas
-      return error
-    }, function (err, meta) {
-      if (err) return cb(err)
-      if (!meta) return cb(null, null)
+  // If the version isn't specified, use the latest version.
+  var metadataPath = naming.typeMetadata(typeInfo.packageName, typeInfo.name)
+  this._getNoConflicts(metadataPath, messages.TypeMetadata, function (metas) {
+    var error = new Error('Conflicting type metadata.')
+    error.conflictingMetadata = metas
+    return error
+  }, function (err, meta) {
+    if (err) return cb(err)
+    if (!meta) return cb(null, null)
+    if (!typeInfo.version) {
       typeInfo.version = meta.latest
-      return finishGet()
-    })
-  } else {
-    finishGet()
-  }
+    } else if (!typeInfo.version.minor) {
+      typeInfo.version.minor = meta.latestMinor[typeInfo.version.major]
+    }
+    return finishGet(meta)
+  })
 
-  function finishGet () {
+  function finishGet (typeMetadata) {
     var typeId = Type.fromInfo(typeInfo)
     // TODO: add caching
     // if (self._types[typeId]) return cb(null, self._types[typeId])
@@ -307,7 +346,7 @@ TypedHyperDB.prototype._getType = function (typeInfo, cb) {
 
       if (!type) return cb(null, null)
       self._types[typeId] = type
-      return cb(null, type)
+      return cb(null, type, typeMetadata)
     })
   }
 }
@@ -533,14 +572,7 @@ TypedHyperDB.prototype.get = function (type, id, cb) {
   })
 }
 
-TypedHyperDB.prototype.mount = function (key, path, opts, cb) {
-  if (typeof opts === 'function') return this.mount(key, path, null, opts)
-  var self = this
-
-  this.ready(function (err) {
-    if (err) return cb(err)
-    return self.db.mount(key, path, opts, cb)
-  })
+TypedHyperDB.prototype.scan = function (type) {
 }
 
 TypedHyperDB.prototype.fork = function (cb) {
