@@ -37,8 +37,11 @@
     "async-each": "^1.0.1",
     "inherits": "^2.0.3",
     "lodash": "^4.17.10",
+    "pouchdb-adapter-leveldb": "^6.4.3",
     "protocol-buffers": "^4.0.4",
     "protocol-buffers-schema": "^3.3.2",
+    "rxdb": "^7.6.1",
+    "rxjs": "^6.2.1",
     "uuid": "^3.2.1"
   }
 }

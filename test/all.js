@@ -190,7 +190,7 @@ test('should be able to use types from other workspaces', async t => {
   t.plan(5)
 
   let [tdb1, tdb2] = await create.twoShared()
-  tdb1.registerTypes(baseSchema, function (err, _) {
+  tdb1.registerTypes(baseSchema, function (err) {
     t.error(err)
     tdb2.importPackages(tdb1.key, ['animals'], function (err) {
       t.error(err)
@@ -205,6 +205,34 @@ test('should be able to use types from other workspaces', async t => {
         tdb2.get('animals.Dog', id, function (err, dog) {
           t.error(err)
           t.same(dog.name, 'Popchop')
+          create.close().then(() => {
+            t.end()
+          })
+        })
+      })
+    })
+  })
+})
+
+test('should be able to delete records', async t => {
+  let tdb = await create.one()
+
+  tdb.registerTypes(baseSchema, err => {
+    t.error(err)
+    tdb.insert('animals.Dog', {
+      name: 'Popchop',
+      breed: {
+        name: 'Pug',
+        populationCount: 5454
+      }
+    }, (err, id) => {
+      t.error(err)
+      t.true(id)
+      tdb.delete('animals.Dog', id, err => {
+        t.error(err)
+        tdb.get('animals.Dog', id, (err, record) => {
+          t.error(err)
+          t.false(record)
           create.close().then(() => {
             t.end()
           })

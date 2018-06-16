@@ -384,7 +384,7 @@ TypedHyperDB.prototype._findAllRecords = function (type, data, cb) {
     let recordPath = naming.record(type.packageName, type.name, type.version.major, data._id)
     let recordFields = Object.keys(type.fieldTypeMap)
 
-    let rootRecord = [recordPath, schema[type.name], data]
+    let rootRecord = [recordPath, schema[type.name], data, type]
 
     if (recordFields.length === 0) {
       // This record does not have any nested record fields.
@@ -442,7 +442,35 @@ TypedHyperDB.prototype.insert = function (type, data, cb) {
     })
     this.db.batch(batch, err => {
       if (err) return cb(err)
+      for (var i = 0; i < records.length; i++) {
+        let recordInfo = records[i]
+        // Emit the insertion information for any listening indexers.
+        this.emit('insert', {
+          key: recordInfo[0],
+          record: recordInfo[1],
+          type: recordInfo[3]
+        })
+      }
       return cb(null, rootId)
+    })
+  })
+}
+
+TypedHyperDB.prototype.delete = function (type, id, cb) {
+  var typeInfo = Type.getInfo(type, id)
+
+  this._getTypeAndSchema(typeInfo, (err, type, schema) => {
+    if (err) return cb(err)
+    var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
+    this.db.del(recordPath, err => {
+      if (err) return cb(err)
+      // Emit the deletion information for any listening indexers.
+      this.emit('delete', {
+        key: recordPath,
+        id: id,
+        type: type
+      })
+      return cb(err)
     })
   })
 }
