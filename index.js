@@ -5,6 +5,8 @@ const uuid = require('uuid/v4')
 const protoSchema = require('protocol-buffers-schema')
 const protobuf = require('protocol-buffers')
 const asyncMap = require('async-each')
+const through = require('through2')
+const pumpify = require('pumpify')
 const _ = require('lodash')
 
 const Type = require('./lib/type')
@@ -220,81 +222,6 @@ TypedHyperDB.prototype._mount = function (key, path, opts, cb) {
   })
 }
 
-// BEGIN Public API
-
-TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
-  if (typeof opts === 'function') return this.importPackages(key, packageNames, null, opts)
-  opts = opts || {}
-  var self = this
-
-  asyncMap(packageNames, function (packageName, next) {
-    var isAliased = (packageName instanceof Array)
-    var localPath = (isAliased) ? naming.package(packageName[1]) : naming.package(packageName)
-    var remotePath = (isAliased) ? naming.package(packageName[0]) : localPath
-    self._mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
-  }, function (err) {
-    if (err) return cb(err)
-    return cb()
-  })
-}
-
-/*
- * Create multiple types from a protocol buffer schema. This enables `insert`, `delete`,
- * and `find` operations over those types.
- *
- * Additionally, these types can be shared with other filesystems via importing
- * (which, under the hood, is reading from a cross-filesystem symlink).
- *
- * Types will be implicitly versioned based on a backwards-compatibility check.
- * If a new type with the same name either:
- *   a) Modifies the type for an existing tag
- *   b) Changes an optional type to a required type
- * then the new type will be assigned a new major version.
- *
- * If neither of those conditions are true, then the new type will be given a
- * new minor version.
- */
-TypedHyperDB.prototype.registerTypes = function (schema, opts, cb) {
-  if (typeof opts === 'function') return this.registerTypes(schema, null, opts)
-  opts = opts || {}
-  var self = this
-
-  // TODO: Better copy?
-  var original = protoSchema.parse(schema)
-  var transformed = protoSchema.parse(schema)
-
-  var packageName = transformed.package
-
-  // 1) Get version by checking for conflicts with an existing version.
-  // 2) If no existing version, then the version is 1.0
-  // 3) After the version bump, register each individual type.
-  self._getSchema(packageName, function (err, schema, packageVersion) {
-    if (err) return cb(err)
-    asyncMap(transformed.messages, function (message, next) {
-      return self._registerType(original, {
-        name: message.name,
-        packageName: packageName,
-        // Set in _registerType.
-        version: null,
-        packageVersion: (packageVersion) ? { major: packageVersion.major + 1 } : { major: 1 },
-        // Populated in _registerType.
-        fieldTypeMap: {},
-        message: message
-      }, next)
-    }, function (err, versions) {
-      if (err) return cb(err)
-      self._registerPackage(packageName, transformed, original, function (err, packageVersion) {
-        if (err) return cb(err)
-        var typesToVersions = {}
-        for (var i = 0; i < versions.length; i++) {
-          typesToVersions[transformed.messages[i].name] = versions[i]
-        }
-        return cb(null, typesToVersions)
-      })
-    })
-  })
-}
-
 TypedHyperDB.prototype._getNoConflicts = function (path, encoding, makeError, cb) {
   this.db.get(path, function (err, nodes) {
     if (err) return cb(err)
@@ -470,6 +397,119 @@ TypedHyperDB.prototype._findAllRecords = function (type, data, cb) {
   }
 }
 
+TypedHyperDB.prototype._inflateNode = function (type, encoding, node, cb) {
+  var self = this
+  var data = encoding.decode(node.value)
+  var recordFields = Object.keys(type.fieldTypeMap)
+  if (recordFields.length === 0) {
+    // This record does not have any nested record fields. Finish get.
+    return cb(null, data)
+  } else {
+    // Fetch each nested record and insert at the correct field path.
+    asyncMap(recordFields, function (field, next) {
+      var nestedType = type.fieldTypeMap[field]
+      if (nestedType.repeated) {
+        // Fetch each nested record by ID .
+        // TODO: This could return too much data -- return some sort of iterator.
+        asyncMap(_.get(data, field), function (nestedId, next) {
+          self.get(nestedType.name, nestedId, function (err, record) {
+            if (err) return next(err)
+            return next(null, record)
+          })
+        }, function (err, records) {
+          if (err) return next(err)
+          _.set(data, field, records)
+          return cb(null)
+        })
+      } else {
+        self.get(nestedType.name, _.get(data, field), function (err, nestedRecord) {
+          if (err) return next(err)
+          _.set(data, field, nestedRecord)
+          return next(null)
+        })
+      }
+    }, function (err) {
+      if (err) return cb(err)
+      return cb(null, data)
+    })
+  }
+}
+
+// BEGIN Public API
+
+TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
+  if (typeof opts === 'function') return this.importPackages(key, packageNames, null, opts)
+  opts = opts || {}
+  var self = this
+
+  asyncMap(packageNames, function (packageName, next) {
+    var isAliased = (packageName instanceof Array)
+    var localPath = (isAliased) ? naming.package(packageName[1]) : naming.package(packageName)
+    var remotePath = (isAliased) ? naming.package(packageName[0]) : localPath
+    self._mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
+  }, function (err) {
+    if (err) return cb(err)
+    return cb()
+  })
+}
+
+/*
+ * Create multiple types from a protocol buffer schema. This enables `insert`, `delete`,
+ * and `find` operations over those types.
+ *
+ * Additionally, these types can be shared with other filesystems via importing
+ * (which, under the hood, is reading from a cross-filesystem symlink).
+ *
+ * Types will be implicitly versioned based on a backwards-compatibility check.
+ * If a new type with the same name either:
+ *   a) Modifies the type for an existing tag
+ *   b) Changes an optional type to a required type
+ * then the new type will be assigned a new major version.
+ *
+ * If neither of those conditions are true, then the new type will be given a
+ * new minor version.
+ */
+TypedHyperDB.prototype.registerTypes = function (schema, opts, cb) {
+  if (typeof opts === 'function') return this.registerTypes(schema, null, opts)
+  opts = opts || {}
+  var self = this
+
+  // TODO: Better copy?
+  var original = protoSchema.parse(schema)
+  var transformed = protoSchema.parse(schema)
+
+  var packageName = transformed.package
+
+  // 1) Get version by checking for conflicts with an existing version.
+  // 2) If no existing version, then the version is 1.0
+  // 3) After the version bump, register each individual type.
+  self._getSchema(packageName, function (err, schema, packageVersion) {
+    if (err) return cb(err)
+    asyncMap(transformed.messages, function (message, next) {
+      return self._registerType(original, {
+        name: message.name,
+        packageName: packageName,
+        // Set in _registerType.
+        version: null,
+        packageVersion: (packageVersion) ? { major: packageVersion.major + 1 } : { major: 1 },
+        // Populated in _registerType.
+        fieldTypeMap: {},
+        message: message
+      }, next)
+    }, function (err, versions) {
+      if (err) return cb(err)
+      self._registerPackage(packageName, transformed, original, function (err, packageVersion) {
+        if (err) return cb(err)
+        var typesToVersions = {}
+        for (var i = 0; i < versions.length; i++) {
+          typesToVersions[transformed.messages[i].name] = versions[i]
+        }
+        return cb(null, typesToVersions)
+      })
+    })
+  })
+}
+
 TypedHyperDB.prototype.insert = function (type, data, cb) {
   this._findAllRecords(type, data, (err, records, rootId) => {
     if (err) return cb(err)
@@ -523,7 +563,6 @@ TypedHyperDB.prototype.get = function (type, id, cb) {
     if (err) return cb(err)
 
     var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
-    var recordFields = Object.keys(type.fieldTypeMap)
 
     var encoding = schema[type.name]
 
@@ -531,54 +570,52 @@ TypedHyperDB.prototype.get = function (type, id, cb) {
       if (err) return cb(err)
       if (!data) return cb(null, null)
       if (data.length === 1) return finishGet(data[0], cb)
-      return asyncMap(data, finishGet, cb)
+      return asyncMap(data, inflate, cb)
     })
 
-    function finishGet (node, cb) {
-      var data = encoding.decode(node.value)
-      if (recordFields.length === 0) {
-        // This record does not have any nested record fields. Finish get.
-        return cb(null, data)
-      } else {
-        // Fetch each nested record and insert at the correct field path.
-        asyncMap(recordFields, function (field, next) {
-          var nestedType = type.fieldTypeMap[field]
-          if (nestedType.repeated) {
-            // Fetch each nested record by ID .
-            // TODO: This could return too much data -- return some sort of iterator.
-            asyncMap(_.get(data, field), function (nestedId, next) {
-              self.get(nestedType.name, nestedId, function (err, record) {
-                if (err) return next(err)
-                return next(null, record)
-              })
-            }, function (err, records) {
-              if (err) return next(err)
-              _.set(data, field, records)
-              return cb(null)
-            })
-          } else {
-            self.get(nestedType.name, _.get(data, field), function (err, nestedRecord) {
-              if (err) return next(err)
-              _.set(data, field, nestedRecord)
-              return next(null)
-            })
-          }
-        }, function (err) {
-          if (err) return cb(err)
-          return cb(null, data)
-        })
-      }
+    function inflate (node, next) {
+      return self._inflateNode(type, encoding, node, next)
     }
   })
 }
 
-TypedHyperDB.prototype.scan = function (type) {
+// TODO: This is unused/untested.
+TypedHyperDB.prototype.createReadStream = function (typeName, opts) {
+  var self = this
+  opts = opts || {}
+
+  var typeInfo = Type.getInfo(typeName)
+  var encoding = null
+  var type = null
+
+  const decoder = through.obj((nodes, enc, cb) => {
+    if (!encoding) {
+      this._getTypeAndSchema(typeInfo, (err, innerType, schema) => {
+        if (err) return cb(err)
+        encoding = schema[type.name]
+        type = innerType
+        return process()
+      })
+    } else {
+      process.nextTick(process)
+    }
+    function process () {
+      return asyncMap(nodes, inflate, cb)
+    }
+  })
+
+  var root = naming.recordsRoot(typeInfo.packageName, typeInfo.name, typeInfo.version.major)
+  return pumpify(this.db.createReadStream(root), decoder)
+
+  function inflate (node, next) {
+    self._inflateNode(type, encoding, node, next)
+  }
 }
 
 TypedHyperDB.prototype.fork = function (cb) {
   var self = this
 
-  this.db.fork(function (err, fork) {
+  this.db.fork((err, fork) => {
     if (err) return cb(err)
     return cb(null, TypedHyperDB(fork, self.opts))
   })
