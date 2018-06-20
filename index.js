@@ -7,6 +7,7 @@ const protobuf = require('protocol-buffers')
 const asyncMap = require('async-each')
 const through = require('through2')
 const pumpify = require('pumpify')
+const duplexify = require('duplexify')
 const _ = require('lodash')
 
 const Type = require('./lib/type')
@@ -569,20 +570,22 @@ TypedHyperDB.prototype.get = async function (type, id, cb) {
   var typeInfo = Type.getInfo(type, id)
 
   var result = new Promise((resolve, reject) => {
-    this._getTypeAndSchema(typeInfo, function (err, type, schema) {
+    this._getTypeAndSchema(typeInfo, (err, type, schema) => {
       if (err) return cb(err)
 
       var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
 
       var encoding = schema[type.name]
 
-      self.db.get(recordPath, function (err, data) {
+      this.db.get(recordPath, function (err, data) {
         if (err) return cb(err)
         if (!data) return cb(null, null)
-        if (data.length === 1) return inflate(data[0], (err, record) => {
-          if (err) return reject(err)
-          return resolve(record)
-        })
+        if (data.length === 1) {
+          return inflate(data[0], (err, record) => {
+            if (err) return reject(err)
+            return resolve(record)
+          })
+        }
         return asyncMap(data, inflate, (err, records) => {
           if (err) return reject(err)
           return resolve(records)
@@ -641,46 +644,49 @@ TypedHyperDB.prototype.createReadStream = function (typeName, opts) {
 // TODO: Deduplicate code between this and createReadStream.
 TypedHyperDB.prototype.createDiffStream = function (typeName, opts) {
   opts = opts || {}
-  var typeInfo = Type.getInfo(typeName)
-  var encoding, type
+  var self = this
 
-  const decoder = through.obj(({ left, right }, enc, cb) => {
-    if (!encoding) {
-      this._getTypeAndSchema(typeInfo, (err, innerType, schema) => {
-        if (err) return cb(err)
-        encoding = schema[type.name]
-        type = innerType
-        return process()
-      })
-    } else {
-      process.nextTick(process)
-    }
-    async function process () {
+  var typeInfo = Type.getInfo(typeName)
+  var stream = duplexify.obj()
+  stream.pause()
+  stream.setWritable(null)
+
+  this._getTypeAndSchema(typeInfo, async (err, innerType, schema) => {
+    if (err) return stream.destroy(err)
+    var root = naming.recordsRoot(innerType.packageName, innerType.name, innerType.version.major)
+    var decoderStream = await decoder(innerType, schema[innerType.name])
+    var diffStream = this.db.createDiffStream(opts.since, root)
+    stream.setReadable(pumpify.obj(diffStream, decoderStream))
+    stream.resume()
+  })
+
+  async function decoder (type, encoding) {
+    return through.obj(async ({ left, right }, enc, cb) => {
+      console.log('LEFT:', left, 'RIGHT:', right)
       if (left) {
         for (var i = 0; i < left.length; i++) {
-          left[i] = await inflate(left[i])    
+          left[i] = await inflate(left[i])
         }
       }
       if (right) {
-        for (var i = 0; i < right.length; i++) {
-          right[i] = await inflate(right[i])    
+        for (i = 0; i < right.length; i++) {
+          right[i] = await inflate(right[i])
         }
       }
       return cb(null, { left, right })
-    }
-  })
-
-  var root = naming.recordsRoot(typeInfo.packageName, typeInfo.name, typeInfo.version.major)
-  return pumpify(this.db.createDiffStream(opts.since, root), decoder)
-
-  async function inflate (node) {
-    return Promise((resolve, reject) => {
-      self._inflateNode(type, encoding, node, (err, inflated) => {
-        if (err) return reject(err)
-        return resolve(inflated)
-      })
     })
+
+    async function inflate (node) {
+      return new Promise((resolve, reject) => {
+        self._inflateNode(type, encoding, node, (err, inflated) => {
+          if (err) return reject(err)
+          return resolve(inflated)
+        })
+      })
+    }
   }
+
+  return stream
 }
 
 TypedHyperDB.prototype.fork = function (cb) {

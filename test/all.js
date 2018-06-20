@@ -337,3 +337,54 @@ test('can stream all records of a given type', async t => {
   })
 })
 */
+
+test('can get the diff for a given type since the beginning of time', async t => {
+  let tdb = await create.one()
+
+  let records = [
+    {
+      name: 'Heidi',
+      breed: {
+        name: 'German Shepherd',
+        populationCount: 100
+      }
+    },
+    {
+      name: 'Rufus',
+      breed: {
+        name: 'Pug',
+        populationCount: 500
+      }
+    }
+  ]
+  let expected = records.length
+
+  tdb.registerTypes(baseSchema, async function (err, typesToVersions) {
+    t.error(err)
+    t.same(typesToVersions['Dog'], '1.0')
+    t.same(typesToVersions['Breed'], '1.0')
+    for (var i = 0; i < records.length; i++) {
+      await tdb.insert('animals.Dog', records[i])
+    }
+    var stream = tdb.createDiffStream('animals.Dog')
+    validate(stream)
+  })
+
+  function validate (stream) {
+    stream.on('end', () => {
+      t.same(expected, 0)
+      create.close().then(() => {
+        t.end()
+      })
+    })
+    stream.on('data', ({ left, right }) => {
+      t.false(right)
+      t.notEqual(records.filter(r => r.name === left[0].name).length, 0)
+      expected--
+    })
+  }
+})
+
+test('can get the diff for a given type since a checkpoint', async t => {
+
+})
