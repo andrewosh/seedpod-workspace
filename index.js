@@ -510,73 +510,100 @@ TypedHyperDB.prototype.registerTypes = function (schema, opts, cb) {
   })
 }
 
-TypedHyperDB.prototype.insert = function (type, data, cb) {
-  this._findAllRecords(type, data, (err, records, rootId) => {
-    if (err) return cb(err)
-    let batch = records.map(record => {
-      return {
-        key: record[0],
-        value: record[1].encode(record[2])
-      }
-    })
-    this.db.batch(batch, err => {
+TypedHyperDB.prototype.insert = async function (type, data, cb) {
+  var result = new Promise((resolve, reject) => {
+    this._findAllRecords(type, data, (err, records, rootId) => {
       if (err) return cb(err)
-      for (var i = 0; i < records.length; i++) {
-        let recordInfo = records[i]
-        // Emit the insertion information for any listening indexers.
-        this.emit('insert', {
-          key: recordInfo[0],
-          record: recordInfo[1],
-          type: recordInfo[3]
-        })
-      }
-      return cb(null, rootId)
+      let batch = records.map(record => {
+        return {
+          key: record[0],
+          value: record[1].encode(record[2])
+        }
+      })
+      this.db.batch(batch, err => {
+        if (err) return reject(err)
+        return resolve(rootId)
+      })
     })
   })
-}
 
-TypedHyperDB.prototype.delete = function (type, id, cb) {
-  var typeInfo = Type.getInfo(type, id)
-
-  this._getTypeAndSchema(typeInfo, (err, type, schema) => {
-    if (err) return cb(err)
-    var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
-    this.db.del(recordPath, err => {
-      if (err) return cb(err)
-      // Emit the deletion information for any listening indexers.
-      this.emit('delete', {
-        key: recordPath,
-        id: id,
-        type: type
-      })
+  if (cb) {
+    result.then(rootId => {
+      return cb(null, rootId)
+    }).catch(err => {
       return cb(err)
     })
-  })
+  }
+
+  return result
 }
 
-TypedHyperDB.prototype.get = function (type, id, cb) {
+TypedHyperDB.prototype.delete = async function (type, id, cb) {
+  var typeInfo = Type.getInfo(type, id)
+
+  var result = new Promise((resolve, reject) => {
+    this._getTypeAndSchema(typeInfo, (err, type, schema) => {
+      if (err) return cb(err)
+      var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
+      this.db.del(recordPath, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  })
+
+  if (cb) {
+    result.then(rootId => {
+      return cb()
+    }).catch(err => {
+      return cb(err)
+    })
+  }
+
+  return result
+}
+
+TypedHyperDB.prototype.get = async function (type, id, cb) {
   var self = this
 
   var typeInfo = Type.getInfo(type, id)
 
-  this._getTypeAndSchema(typeInfo, function (err, type, schema) {
-    if (err) return cb(err)
-
-    var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
-
-    var encoding = schema[type.name]
-
-    self.db.get(recordPath, function (err, data) {
+  var result = new Promise((resolve, reject) => {
+    this._getTypeAndSchema(typeInfo, function (err, type, schema) {
       if (err) return cb(err)
-      if (!data) return cb(null, null)
-      if (data.length === 1) return finishGet(data[0], cb)
-      return asyncMap(data, inflate, cb)
-    })
 
-    function inflate (node, next) {
-      return self._inflateNode(type, encoding, node, next)
-    }
+      var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
+
+      var encoding = schema[type.name]
+
+      self.db.get(recordPath, function (err, data) {
+        if (err) return cb(err)
+        if (!data) return cb(null, null)
+        if (data.length === 1) return inflate(data[0], (err, record) => {
+          if (err) return reject(err)
+          return resolve(record)
+        })
+        return asyncMap(data, inflate, (err, records) => {
+          if (err) return reject(err)
+          return resolve(records)
+        })
+      })
+
+      function inflate (node, next) {
+        return self._inflateNode(type, encoding, node, next)
+      }
+    })
   })
+
+  if (cb) {
+    result.then(records => {
+      return cb(null, records)
+    }).catch(err => {
+      return cb(err)
+    })
+  }
+
+  return result
 }
 
 // TODO: This is unused/untested.
@@ -585,8 +612,7 @@ TypedHyperDB.prototype.createReadStream = function (typeName, opts) {
   opts = opts || {}
 
   var typeInfo = Type.getInfo(typeName)
-  var encoding = null
-  var type = null
+  var encoding, type
 
   const decoder = through.obj((nodes, enc, cb) => {
     if (!encoding) {
@@ -609,6 +635,51 @@ TypedHyperDB.prototype.createReadStream = function (typeName, opts) {
 
   function inflate (node, next) {
     self._inflateNode(type, encoding, node, next)
+  }
+}
+
+// TODO: Deduplicate code between this and createReadStream.
+TypedHyperDB.prototype.createDiffStream = function (typeName, opts) {
+  opts = opts || {}
+  var typeInfo = Type.getInfo(typeName)
+  var encoding, type
+
+  const decoder = through.obj(({ left, right }, enc, cb) => {
+    if (!encoding) {
+      this._getTypeAndSchema(typeInfo, (err, innerType, schema) => {
+        if (err) return cb(err)
+        encoding = schema[type.name]
+        type = innerType
+        return process()
+      })
+    } else {
+      process.nextTick(process)
+    }
+    async function process () {
+      if (left) {
+        for (var i = 0; i < left.length; i++) {
+          left[i] = await inflate(left[i])    
+        }
+      }
+      if (right) {
+        for (var i = 0; i < right.length; i++) {
+          right[i] = await inflate(right[i])    
+        }
+      }
+      return cb(null, { left, right })
+    }
+  })
+
+  var root = naming.recordsRoot(typeInfo.packageName, typeInfo.name, typeInfo.version.major)
+  return pumpify(this.db.createDiffStream(opts.since, root), decoder)
+
+  async function inflate (node) {
+    return Promise((resolve, reject) => {
+      self._inflateNode(type, encoding, node, (err, inflated) => {
+        if (err) return reject(err)
+        return resolve(inflated)
+      })
+    })
   }
 }
 

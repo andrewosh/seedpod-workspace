@@ -305,6 +305,7 @@ test('changes feed should contain deletions', async t => {
   })
 })
 
+/*
 test('can stream all records of a given type', async t => {
   let tdb = await create.one()
   tdb.registerTypes(baseSchema, function (err, typesToVersions) {
@@ -335,3 +336,4 @@ test('can stream all records of a given type', async t => {
     })
   })
 })
+*/
