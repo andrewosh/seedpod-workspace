@@ -386,5 +386,46 @@ test('can get the diff for a given type since the beginning of time', async t =>
 })
 
 test('can get the diff for a given type since a checkpoint', async t => {
+  let tdb = await create.one()
 
+  let firstRecord = {
+    name: 'Heidi',
+    breed: {
+      name: 'German Shepherd',
+      populationCount: 100
+    }
+  }
+  let secondRecord = {
+    name: 'Rufus',
+    breed: {
+      name: 'Pug',
+      populationCount: 500
+    }
+  }
+  let expected = 1
+
+  tdb.registerTypes(baseSchema, async function (err, typesToVersions) {
+    t.error(err)
+    t.same(typesToVersions['Dog'], '1.0')
+    t.same(typesToVersions['Breed'], '1.0')
+    await tdb.insert('animals.Dog', firstRecord)
+    var version = await tdb.version()
+    await tdb.insert('animals.Dog', secondRecord)
+    var stream = tdb.createDiffStream('animals.Dog', { since: version })
+    validate(stream)
+  })
+
+  function validate (stream) {
+    stream.on('end', () => {
+      t.same(expected, 0)
+      create.close().then(() => {
+        t.end()
+      })
+    })
+    stream.on('data', ({ left, right }) => {
+      t.false(right)
+      t.equal(left[0].name, 'Rufus')
+      expected--
+    })
+  }
 })

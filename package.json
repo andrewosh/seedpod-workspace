@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "async-each": "^1.0.1",
+    "call-me-maybe": "^1.0.1",
     "duplexify": "^3.6.0",
     "inherits": "^2.0.3",
     "lodash": "^4.17.10",

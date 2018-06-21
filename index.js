@@ -8,6 +8,7 @@ const asyncMap = require('async-each')
 const through = require('through2')
 const pumpify = require('pumpify')
 const duplexify = require('duplexify')
+const maybe = require('call-me-maybe')
 const _ = require('lodash')
 
 const Type = require('./lib/type')
@@ -438,20 +439,22 @@ TypedHyperDB.prototype._inflateNode = function (type, encoding, node, cb) {
 
 // BEGIN Public API
 
-TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
+TypedHyperDB.prototype.importPackages = async function (key, packageNames, opts, cb) {
   if (typeof opts === 'function') return this.importPackages(key, packageNames, null, opts)
   opts = opts || {}
   var self = this
 
-  asyncMap(packageNames, function (packageName, next) {
-    var isAliased = (packageName instanceof Array)
-    var localPath = (isAliased) ? naming.package(packageName[1]) : naming.package(packageName)
-    var remotePath = (isAliased) ? naming.package(packageName[0]) : localPath
-    self._mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
-  }, function (err) {
-    if (err) return cb(err)
-    return cb()
-  })
+  return maybe(cb, new Promise((resolve, reject) => {
+    asyncMap(packageNames, function (packageName, next) {
+      var isAliased = (packageName instanceof Array)
+      var localPath = (isAliased) ? naming.package(packageName[1]) : naming.package(packageName)
+      var remotePath = (isAliased) ? naming.package(packageName[0]) : localPath
+      self._mount(key, localPath, Object.assign({}, opts, { remotePath: remotePath }), next)
+    }, function (err) {
+      if (err) return reject(err)
+      return resolve()
+    })
+  }))
 }
 
 /*
@@ -470,7 +473,7 @@ TypedHyperDB.prototype.importPackages = function (key, packageNames, opts, cb) {
  * If neither of those conditions are true, then the new type will be given a
  * new minor version.
  */
-TypedHyperDB.prototype.registerTypes = function (schema, opts, cb) {
+TypedHyperDB.prototype.registerTypes = async function (schema, opts, cb) {
   if (typeof opts === 'function') return this.registerTypes(schema, null, opts)
   opts = opts || {}
   var self = this
@@ -481,38 +484,40 @@ TypedHyperDB.prototype.registerTypes = function (schema, opts, cb) {
 
   var packageName = transformed.package
 
-  // 1) Get version by checking for conflicts with an existing version.
-  // 2) If no existing version, then the version is 1.0
-  // 3) After the version bump, register each individual type.
-  self._getSchema(packageName, function (err, schema, packageVersion) {
-    if (err) return cb(err)
-    asyncMap(transformed.messages, function (message, next) {
-      return self._registerType(original, {
-        name: message.name,
-        packageName: packageName,
-        // Set in _registerType.
-        version: null,
-        packageVersion: (packageVersion) ? { major: packageVersion.major + 1 } : { major: 1 },
-        // Populated in _registerType.
-        fieldTypeMap: {},
-        message: message
-      }, next)
-    }, function (err, versions) {
+  return maybe(cb, new Promise((resolve, reject) => {
+    // 1) Get version by checking for conflicts with an existing version.
+    // 2) If no existing version, then the version is 1.0
+    // 3) After the version bump, register each individual type.
+    self._getSchema(packageName, function (err, schema, packageVersion) {
       if (err) return cb(err)
-      self._registerPackage(packageName, transformed, original, function (err, packageVersion) {
-        if (err) return cb(err)
-        var typesToVersions = {}
-        for (var i = 0; i < versions.length; i++) {
-          typesToVersions[transformed.messages[i].name] = versions[i]
-        }
-        return cb(null, typesToVersions)
+      asyncMap(transformed.messages, function (message, next) {
+        return self._registerType(original, {
+          name: message.name,
+          packageName: packageName,
+          // Set in _registerType.
+          version: null,
+          packageVersion: (packageVersion) ? { major: packageVersion.major + 1 } : { major: 1 },
+          // Populated in _registerType.
+          fieldTypeMap: {},
+          message: message
+        }, next)
+      }, function (err, versions) {
+        if (err) return reject(err)
+        self._registerPackage(packageName, transformed, original, function (err, packageVersion) {
+          if (err) return reject(err)
+          var typesToVersions = {}
+          for (var i = 0; i < versions.length; i++) {
+            typesToVersions[transformed.messages[i].name] = versions[i]
+          }
+          return resolve(typesToVersions)
+        })
       })
     })
-  })
+  }))
 }
 
 TypedHyperDB.prototype.insert = async function (type, data, cb) {
-  var result = new Promise((resolve, reject) => {
+  return maybe(cb, new Promise((resolve, reject) => {
     this._findAllRecords(type, data, (err, records, rootId) => {
       if (err) return cb(err)
       let batch = records.map(record => {
@@ -526,23 +531,13 @@ TypedHyperDB.prototype.insert = async function (type, data, cb) {
         return resolve(rootId)
       })
     })
-  })
-
-  if (cb) {
-    result.then(rootId => {
-      return cb(null, rootId)
-    }).catch(err => {
-      return cb(err)
-    })
-  }
-
-  return result
+  }))
 }
 
 TypedHyperDB.prototype.delete = async function (type, id, cb) {
   var typeInfo = Type.getInfo(type, id)
 
-  var result = new Promise((resolve, reject) => {
+  return maybe(cb, new Promise((resolve, reject) => {
     this._getTypeAndSchema(typeInfo, (err, type, schema) => {
       if (err) return cb(err)
       var recordPath = naming.record(type.packageName, type.name, type.version.major, id)
@@ -551,17 +546,7 @@ TypedHyperDB.prototype.delete = async function (type, id, cb) {
         return resolve()
       })
     })
-  })
-
-  if (cb) {
-    result.then(rootId => {
-      return cb()
-    }).catch(err => {
-      return cb(err)
-    })
-  }
-
-  return result
+  }))
 }
 
 TypedHyperDB.prototype.get = async function (type, id, cb) {
@@ -569,7 +554,7 @@ TypedHyperDB.prototype.get = async function (type, id, cb) {
 
   var typeInfo = Type.getInfo(type, id)
 
-  var result = new Promise((resolve, reject) => {
+  return maybe(cb, new Promise((resolve, reject) => {
     this._getTypeAndSchema(typeInfo, (err, type, schema) => {
       if (err) return cb(err)
 
@@ -596,17 +581,7 @@ TypedHyperDB.prototype.get = async function (type, id, cb) {
         return self._inflateNode(type, encoding, node, next)
       }
     })
-  })
-
-  if (cb) {
-    result.then(records => {
-      return cb(null, records)
-    }).catch(err => {
-      return cb(err)
-    })
-  }
-
-  return result
+  }))
 }
 
 // TODO: This is unused/untested.
@@ -689,13 +664,22 @@ TypedHyperDB.prototype.createDiffStream = function (typeName, opts) {
   return stream
 }
 
-TypedHyperDB.prototype.fork = function (cb) {
-  var self = this
+TypedHyperDB.prototype.fork = async function (cb) {
+  return maybe(cb, new Promise((resolve, reject) => {
+    this.db.fork((err, fork) => {
+      if (err) return reject(err)
+      return resolve(TypedHyperDB(fork, this.opts))
+    })
+  }))
+}
 
-  this.db.fork((err, fork) => {
-    if (err) return cb(err)
-    return cb(null, TypedHyperDB(fork, self.opts))
-  })
+TypedHyperDB.prototype.version = async function (cb) {
+  return maybe(cb, new Promise((resolve, reject) => {
+    this.db.version((err, version) => {
+      if (err) return reject(err)
+      return resolve(version)
+    })
+  }))
 }
 
 TypedHyperDB.prototype.authorize = function (key) {
