@@ -637,7 +637,6 @@ TypedHyperDB.prototype.createDiffStream = function (typeName, opts) {
 
   async function decoder (type, encoding) {
     return through.obj(async ({ left, right }, enc, cb) => {
-      console.log('LEFT:', left, 'RIGHT:', right)
       if (left) {
         for (var i = 0; i < left.length; i++) {
           left[i] = await inflate(left[i])
