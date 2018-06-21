@@ -305,39 +305,6 @@ test('changes feed should contain deletions', async t => {
   })
 })
 
-/*
-test('can stream all records of a given type', async t => {
-  let tdb = await create.one()
-  tdb.registerTypes(baseSchema, function (err, typesToVersions) {
-    t.error(err)
-    t.same(typesToVersions['Dog'], '1.0')
-    t.same(typesToVersions['Breed'], '1.0')
-    tdb.insert('animals.Dog', {
-      name: 'Heidi',
-      breed: {
-        name: 'German Shepherd',
-        populationCount: 100
-      }
-    }, (err, id) => {
-      t.error(err)
-      tdb.insert('animals.Dog', {
-        name: 'Rufus',
-        breed: {
-          name: 'Pug',
-          populationCount: 10000
-        }
-      }, (err, id) => {
-        t.error(err)
-        var stream = tdb.creatReadStream('animals.Dog')
-        create.close().then(() => {
-          t.end()
-        })
-      })
-    })
-  })
-})
-*/
-
 test('can get the diff for a given type since the beginning of time', async t => {
   let tdb = await create.one()
 

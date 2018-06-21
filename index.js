@@ -584,38 +584,6 @@ TypedHyperDB.prototype.get = async function (type, id, cb) {
   }))
 }
 
-// TODO: This is unused/untested.
-TypedHyperDB.prototype.createReadStream = function (typeName, opts) {
-  var self = this
-  opts = opts || {}
-
-  var typeInfo = Type.getInfo(typeName)
-  var encoding, type
-
-  const decoder = through.obj((nodes, enc, cb) => {
-    if (!encoding) {
-      this._getTypeAndSchema(typeInfo, (err, innerType, schema) => {
-        if (err) return cb(err)
-        encoding = schema[type.name]
-        type = innerType
-        return process()
-      })
-    } else {
-      process.nextTick(process)
-    }
-    function process () {
-      return asyncMap(nodes, inflate, cb)
-    }
-  })
-
-  var root = naming.recordsRoot(typeInfo.packageName, typeInfo.name, typeInfo.version.major)
-  return pumpify(this.db.createReadStream(root), decoder)
-
-  function inflate (node, next) {
-    self._inflateNode(type, encoding, node, next)
-  }
-}
-
 // TODO: Deduplicate code between this and createReadStream.
 TypedHyperDB.prototype.createDiffStream = function (typeName, opts) {
   opts = opts || {}
