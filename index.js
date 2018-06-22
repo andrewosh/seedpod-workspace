@@ -110,7 +110,7 @@ TypedHyperDB.prototype._registerPackage = function (packageName, transformed, or
 TypedHyperDB.prototype._registerType = function (schema, typeInfo, cb) {
   var self = this
 
-  self._getType(typeInfo, function (err, type, typeMetadata) {
+  self.getType(typeInfo, function (err, {type, typeMetadata}) {
     if (err) return cb(err)
     if (!type) {
       // This is the first time this type has been registered.
@@ -240,27 +240,32 @@ TypedHyperDB.prototype._getNoConflicts = function (path, encoding, makeError, cb
   })
 }
 
-TypedHyperDB.prototype._getType = function (typeInfo, cb) {
+TypedHyperDB.prototype.getType = async function (typeInfo, cb) {
   var self = this
 
   // If the version isn't specified, use the latest version.
   var metadataPath = naming.typeMetadata(typeInfo.packageName, typeInfo.name)
-  this._getNoConflicts(metadataPath, messages.TypeMetadata, function (metas) {
-    var error = new Error('Conflicting type metadata.')
-    error.conflictingMetadata = metas
-    return error
-  }, function (err, meta) {
-    if (err) return cb(err)
-    if (!meta) return cb(null, null)
-    if (!typeInfo.version) {
-      typeInfo.version = meta.latest
-    } else if (!typeInfo.version.minor) {
-      typeInfo.version.minor = meta.latestMinor[typeInfo.version.major]
-    }
-    return finishGet(meta)
-  })
+  var typeMetadata
 
-  function finishGet (typeMetadata) {
+  return maybe(cb, new Promise((resolve, reject) => {
+    this._getNoConflicts(metadataPath, messages.TypeMetadata, function (metas) {
+      var error = new Error('Conflicting type metadata.')
+      error.conflictingMetadata = metas
+      return reject(error)
+    }, function (err, meta) {
+      if (err) return reject(err)
+      if (!meta) return resolve({ type: null, typeMetadata })
+      if (!typeInfo.version) {
+        typeInfo.version = meta.latest
+      } else if (!typeInfo.version.minor) {
+        typeInfo.version.minor = meta.latestMinor[typeInfo.version.major]
+      }
+      typeMetadata = meta
+      return finishGet(resolve, reject)
+    })
+  }))
+
+  function finishGet (resolve, reject) {
     var typeId = Type.fromInfo(typeInfo)
     // TODO: add caching
     // if (self._types[typeId]) return cb(null, self._types[typeId])
@@ -269,13 +274,13 @@ TypedHyperDB.prototype._getType = function (typeInfo, cb) {
     self._getNoConflicts(typePath, messages.TypeRecord, function (types) {
       var error = new Error('Conflicting types.')
       error.conflictingTypes = types
-      return error
+      return reject(error)
     }, function (err, type) {
-      if (err) return cb(err)
+      if (err) return reject(err)
 
-      if (!type) return cb(null, null)
+      if (!type) return resolve({ type, typeMetadata })
       self._types[typeId] = type
-      return cb(null, type, typeMetadata)
+      return resolve({ type, typeMetadata })
     })
   }
 }
@@ -324,7 +329,7 @@ TypedHyperDB.prototype._getSchema = function (packageName, version, cb) {
 TypedHyperDB.prototype._getTypeAndSchema = function (typeInfo, cb) {
   var self = this
 
-  this._getType(typeInfo, function (err, type) {
+  this.getType(typeInfo, function (err, {type}) {
     if (err) return cb(err)
     if (!type) return cb(new Error('Type does not exist. Did you forget to register or import the schema?'))
     self._getSchema(type.packageName, type.packageVersion, function (err, schema) {
