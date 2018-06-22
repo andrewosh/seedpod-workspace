@@ -1,0 +1,41 @@
+// Package records.
+
+message PackageVersion  {
+  required uint64 major = 1;
+}
+
+message PackageMetadata {
+  required PackageVersion latest = 1;
+}
+
+message PackageRecord {
+  required string name = 1;
+  required PackageVersion version = 2;
+  required string transformed = 3;
+  required string original = 4;
+}
+
+// Type records.
+
+message RecordFieldMetadata {
+  required string name = 1;
+  required bool repeated = 2;
+}
+
+message TypeVersion {
+  required uint32 major = 1;
+  required uint32 minor = 2;
+}
+
+message TypeMetadata {
+  required TypeVersion latest = 1;
+  map<uint32, uint32> latestMinor = 2;
+}
+
+message TypeRecord {
+  required string name = 1;
+  required string packageName = 2;
+  required TypeVersion version = 3;  
+  required PackageVersion packageVersion = 4; 
+  map<string, RecordFieldMetadata> fieldTypeMap = 5;
+}
