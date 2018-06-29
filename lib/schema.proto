@@ -9,10 +9,14 @@ message PackageMetadata {
 }
 
 message PackageRecord {
-  required string name = 1;
+  required string id = 1;
   required PackageVersion version = 2;
-  required string transformed = 3;
-  required string original = 4;
+
+  required string key = 3;
+  required bytes keyVersion = 4;
+
+  required string transformed = 5;
+  required string original = 6;
 }
 
 // Type records.
@@ -34,8 +38,10 @@ message TypeMetadata {
 
 message TypeRecord {
   required string name = 1;
-  required string packageName = 2;
+  required string packageId = 2;
   required TypeVersion version = 3;  
   required PackageVersion packageVersion = 4; 
   map<string, RecordFieldMetadata> fieldTypeMap = 5;
 }
+
+// Application records.
