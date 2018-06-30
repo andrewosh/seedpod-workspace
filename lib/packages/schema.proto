@@ -1,7 +1,8 @@
 // Package records.
 
 message PackageVersion  {
-  required uint64 major = 1;
+  required uint32 major = 1;
+  required string tag = 2;
 }
 
 message PackageMetadata {
@@ -9,11 +10,10 @@ message PackageMetadata {
 }
 
 message PackageRecord {
-  required string id = 1;
-  required PackageVersion version = 2;
-
-  required string key = 3;
-  required bytes keyVersion = 4;
+  required string name = 1;
+  required string key = 2;
+  required PackageVersion version = 4;
+  map<uint32, bytes> versionMap = 5;
 
   required string transformed = 5;
   required string original = 6;
@@ -27,13 +27,13 @@ message RecordFieldMetadata {
 }
 
 message TypeVersion {
-  required uint32 major = 1;
-  required uint32 minor = 2;
+  required uint32 backwards = 1;
+  required uint32 forwards = 2;
+  optional uint32 patch = 3;
 }
 
 message TypeMetadata {
   required TypeVersion latest = 1;
-  map<uint32, uint32> latestMinor = 2;
 }
 
 message TypeRecord {
@@ -42,6 +42,5 @@ message TypeRecord {
   required TypeVersion version = 3;  
   required PackageVersion packageVersion = 4; 
   map<string, RecordFieldMetadata> fieldTypeMap = 5;
+  optional string parent = 6;
 }
-
-// Application records.

@@ -36,7 +36,9 @@
   "dependencies": {
     "async-each": "^1.0.1",
     "call-me-maybe": "^1.0.1",
+    "codecs": "^1.2.1",
     "duplexify": "^3.6.0",
+    "grpc": "^1.12.4",
     "inherits": "^2.0.3",
     "lodash": "^4.17.10",
     "pouchdb-adapter-leveldb": "^6.4.3",

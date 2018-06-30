@@ -10,7 +10,12 @@ const pumpify = require('pumpify')
 const duplexify = require('duplexify')
 const maybe = require('call-me-maybe')
 const logger = require('template-console-logger')
+const sub = require('subhyperdb')
 const _ = require('lodash')
+
+const Graph = require('hyper-graph-db')
+const PackageManager = require('./lib/packages')
+const RecordManager = require('./lib/records')
 
 const Type = require('./lib/type')
 const Package = require('./lib/package')
@@ -25,23 +30,24 @@ function TypedHyperDB (db, opts) {
   this.log = this.opts.log || logger()
   this.db = db
 
-  // TODO: replace with an LRU cache.
-  // TODO: re-add caching.
-  this._schemas = {}
-  this._types = {}
-
   // Set in ready
   this.key = null
   this.graph = null
+  this.packages = null
+  this.records = null
+
   this._unwatch = null
 
   this._ready = new Promise(async (resolve, reject) => {
     try {
       await this.db.ready()
-      this.
       this._unwatch = await this._startWatching()
       this.key = this.db.key
-      this.graph = this.db.sub(naming.GRAPH_DB_ROOT)
+
+      this.graph = Graph(sub(this.db, naming.GRAPH_DB_ROOT))
+      this.packages = PackageManager(sub(this.db, naming.PACKAGE_ROOT))
+      this.records = RecordManager(sub(this.db, naming.RECORD_ROOT), this.packages)
+
       return resolve()
     } catch (err) {
       return reject(err)
@@ -59,28 +65,8 @@ function TypedHyperDB (db, opts) {
 }
 inherits(TypedHyperDB, events.EventEmitter)
 
-TypedHyperDB.prototype._startWatching = async function () {
-  this.log.debug('Watching record root for changes...')
-  return this.db.watch(naming.RECORD_ROOT, (nodes) => {
-    var descriptor = Type.fromRecordPath(nodes[0].key)
-    this._getTypeAndSchema(descriptor, (err, [type, schema]) => {
-      if (err) throw err
-      var encoding = schema[type.name]
-      this.emit('change', nodes.map(n => {
-        return {
-          type: n.value ? 'update' : 'delete',
-          data: {
-            record: n.value ? encoding.decode(n.value) : null,
-            type: type,
-            id: descriptor.id
-          }
-        }
-      }))
-    })
-  })
-}
 
-TypedHyperDB.prototype._registerPackage = function (packageName, transformed, original, cb) {
+TypedHyperDB.prototype._registerPackage = function (pkgName, pkgVersion transformed, original, cb) {
   var self = this
 
   var packagePath = naming.package(packageName)
