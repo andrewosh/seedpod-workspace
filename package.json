@@ -41,6 +41,8 @@
     "grpc": "^1.12.4",
     "inherits": "^2.0.3",
     "lodash": "^4.17.10",
+    "moo": "^0.4.3",
+    "nearley": "^2.13.0",
     "pouchdb-adapter-leveldb": "^6.4.3",
     "protocol-buffers": "^4.0.4",
     "protocol-buffers-schema": "^3.3.2",

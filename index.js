@@ -66,7 +66,7 @@ function TypedHyperDB (db, opts) {
 inherits(TypedHyperDB, events.EventEmitter)
 
 
-TypedHyperDB.prototype._registerPackage = function (pkgName, pkgVersion transformed, original, cb) {
+TypedHyperDB.prototype._registerPackage = function (pkgName, pkgVersion, transformed, original, cb) {
   var self = this
 
   var packagePath = naming.package(packageName)

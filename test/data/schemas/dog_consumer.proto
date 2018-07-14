@@ -1,7 +1,0 @@
-package spca;
-
-message Shelter {
-  required string _id = 0;
-  required string name = 1;
-  repeated animals.Dog dogs = 2;
-}
