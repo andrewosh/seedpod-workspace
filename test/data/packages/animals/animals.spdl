@@ -3,3 +3,7 @@ type Animal {
   limbCount: uint16
   populationCount?: uint64
 }
+
+type Human {
+  name: string
+}

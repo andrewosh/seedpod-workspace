@@ -1,4 +1,7 @@
-import { Animal } from 'animals'
+import {
+  Animal as OtherAnimal,
+  Human
+} from 'animals'
 
 enum Energy {
   LOW,
@@ -11,14 +14,19 @@ type Dog extends Animal {
   energy?: Energy
 }
 
-type Walker {
-  name: string
+type Walker extends Human {
   walking?: [Dog]
 }
 
-query breedsForWalker (walkerId: string): [Dog] {
-  SELECT breed {
-    $walkerId Walker.walking ?o
+sparql query breedsForWalker (walker: string): [Breed] {
+  SELECT ?breed WHERE {
+    $walker Walker.walking ?o
     ?o Dog.breed ?breed
+  }
+}
+
+sparql query linksToAnimals (): [any] {
+  SELECT ?o WHERE {
+    ?s Animal ?o
   }
 }
