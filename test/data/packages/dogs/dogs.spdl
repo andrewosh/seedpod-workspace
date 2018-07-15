@@ -2,6 +2,10 @@ import {
   Animal as OtherAnimal,
   Human
 } from 'animals'
+import {
+  VIEW,
+  EDIT
+} from '@seedpod/actions'
 
 enum Energy {
   LOW,
@@ -28,6 +32,16 @@ tag type Location {
   lat: float
   lon: float
   target: Human
+}
+
+action ViewWalker {
+  verb: VIEW
+  filter: Walker
+}
+
+action EditWalker {
+  verb: EDIT
+  filter: Walker
 }
 
 sparql query breedsForWalker (walker: string): [Breed] {

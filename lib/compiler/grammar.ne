@@ -41,7 +41,8 @@ const lexer = moo.states({
     import: { match: 'import', push: 'import' },
     type: { match: 'type', push: 'type' },
     struct: { match: 'struct', push: 'type' },
-    tagType: { match: 'tag type', push: 'type'},
+    tagType: { match: 'tag type', push: 'type' },
+    action: { match: 'action', push: 'type' },
     enum: { match: 'enum', push: 'enum' },
     sparql: { match: 'sparql query', push: 'sparqlQuery' }
   },
@@ -52,7 +53,7 @@ const lexer = moo.states({
     SP: space,
     leftbrace: { match: /\{/, push: 'singleImport' },
     from: 'from',
-    packageName: { match: /'[a-zA-z0-0]+'/, pop: true, value: packageTransform }
+    packageName: { match: /'@?[a-zA-z0-0\/]+'/, pop: true, value: packageTransform }
   },
   singleImport: {
     NL: newline,
@@ -182,14 +183,15 @@ Type -> TypeSignature LeftBrace Field:* Space:? RightBrace {%
     }
   }
 %}
-TypeSignature -> (%type | %tagType | %struct) %typeName %typeParent:? Space:? {%
+TypeSignature -> (%type | %tagType | %struct | %action) %typeName %typeParent:? Space:? {%
   ([typeType, typeName, typeParent]) => {
      return {
        typeName: typeName.value,
        typeParent: typeParent ? typeParent.value : null,
        isTag: (typeType[0].type === 'tagType'),
-       isStruct: (typeType[0].type === 'struct')
-     } 
+       isStruct: (typeType[0].type === 'struct'),
+       isAction: (typeType[0].type === 'action')
+     }
   }
 %}
 Field -> (RequiredField | OptionalField) (SingleType | ArrayType) Space {%
