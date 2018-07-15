@@ -14,7 +14,8 @@ function requiredFieldTransform (x) {
   return x.slice(0, x.length - 1)
 }
 
-function optionalFieldTransform (x) {return x.slice(0, x.length - 2)
+function optionalFieldTransform (x) {
+  return x.slice(0, x.length - 2)
 }
 
 function parentTransform (x) {
@@ -39,6 +40,8 @@ const lexer = moo.states({
     NL: newline,
     import: { match: 'import', push: 'import' },
     type: { match: 'type', push: 'type' },
+    struct: { match: 'struct', push: 'type' },
+    tagType: { match: 'tag type', push: 'type'},
     enum: { match: 'enum', push: 'enum' },
     sparql: { match: 'sparql query', push: 'sparqlQuery' }
   },
@@ -68,7 +71,8 @@ const lexer = moo.states({
     typeName: /[A-Z][a-zA-Z0-9]+/,
     typeParent: { match: /extends\s+[A-Z][a-zA-Z0-9]+/, value: parentTransform },
     leftbrace: '{'
-  }, field: {
+  },
+  field: {
     SP: space,
     requiredField,
     optionalField,
@@ -154,11 +158,13 @@ Import -> ImportStart TypeImport:+ ImportEnd Space {%
   }
 %}
 ImportStart -> "import" LeftBrace {% nuller %}
-ImportEnd ->  RightBrace "from" %packageName {% ([, , pkgName]) => {return pkgName.value
+ImportEnd ->  RightBrace "from" %packageName {%
+  ([, , pkgName]) => {
+    return pkgName.value
   }
 %}
 TypeImport -> %importName %importAlias:? %comma:? Space:? {%
-  ([importName, , importAlias]) => {
+  ([importName, importAlias]) => {
     return {
       name: importName.value,
       alias: importAlias ? importAlias.value : null
@@ -176,11 +182,13 @@ Type -> TypeSignature LeftBrace Field:* Space:? RightBrace {%
     }
   }
 %}
-TypeSignature -> "type" %typeName %typeParent:? Space:? {%
-  ([, typeName, typeParent]) => {
+TypeSignature -> (%type | %tagType | %struct) %typeName %typeParent:? Space:? {%
+  ([typeType, typeName, typeParent]) => {
      return {
        typeName: typeName.value,
-       typeParent: typeParent ? typeParent.value : null
+       typeParent: typeParent ? typeParent.value : null,
+       isTag: (typeType[0].type === 'tagType'),
+       isStruct: (typeType[0].type === 'struct')
      } 
   }
 %}

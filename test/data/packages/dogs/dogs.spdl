@@ -9,13 +9,25 @@ enum Energy {
   HIGH
 }
 
+struct AgeInfo {
+  birthday: string
+  age: uint16
+}
+
 type Dog extends Animal {
   breed: string
   energy?: Energy
 }
 
 type Walker extends Human {
+  age: AgeInfo
   walking?: [Dog]
+}
+
+tag type Location {
+  lat: float
+  lon: float
+  target: Human
 }
 
 sparql query breedsForWalker (walker: string): [Breed] {
