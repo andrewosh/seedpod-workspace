@@ -1,0 +1,6 @@
+action VIEW {}
+action EDIT {}
+
+type BaseType {
+  string _id
+}

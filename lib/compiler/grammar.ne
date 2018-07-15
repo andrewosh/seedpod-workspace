@@ -196,8 +196,6 @@ TypeSignature -> (%type | %tagType | %struct | %action) %typeName %typeParent:? 
 %}
 Field -> (RequiredField | OptionalField) (SingleType | ArrayType) Space {%
   ([[fieldName], [fieldType]]) => {
-  console.log('fieldName:', fieldName)
-  console.log('fieldType:', fieldType)
     return {
       fieldName: fieldName.value,
       isOptional: (fieldName.type === 'optionalField'),
@@ -241,7 +239,6 @@ QueryArgs -> %leftparen (QueryArg %comma:?):* %rightparen {%
 %}
 QueryArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %arrayParamType) {%
   ([[name], [type]]) => {
-    console.log('NAME:', name, 'TYPE:', type)
     return {
       paramName: {
         isOptional: (name.type === 'optionalParamName'),

@@ -34,13 +34,11 @@ tag type Location {
   target: Human
 }
 
-action ViewWalker {
-  verb: VIEW
+action ViewWalker extends VIEW {
   filter: Walker
 }
 
-action EditWalker {
-  verb: EDIT
+action EditWalker extends EDIT {
   filter: Walker
 }
 
