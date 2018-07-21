@@ -1,0 +1,7 @@
+{
+  "name": "dogs",
+  "dependencies": {
+    "animals": "1-beta",
+    "@seedpod/actions": "1-theta"
+  }
+}

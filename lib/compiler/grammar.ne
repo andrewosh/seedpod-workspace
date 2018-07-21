@@ -53,7 +53,7 @@ const lexer = moo.states({
     SP: space,
     leftbrace: { match: /\{/, push: 'singleImport' },
     from: 'from',
-    packageName: { match: /'@?[a-zA-z0-0\/]+'/, pop: true, value: packageTransform }
+    packageName: { match: /'@?[a-zA-z0-0\/\.\-]+'/, pop: true, value: packageTransform }
   },
   singleImport: {
     NL: newline,
@@ -105,7 +105,7 @@ const lexer = moo.states({
     NL: newline,
     queryName: /[a-zA-Z0-9]+/,
     leftparen: { match: '(', push: 'queryArgs' },
-    colon: { match: ':', push: 'queryType' }
+    colon: { match: ':', push: 'queryReturn' }
   },
   queryArgs: {
     SP: space,
@@ -117,7 +117,7 @@ const lexer = moo.states({
     singleParamType: singleType,
     arrayParamType: arrayType
   },
-  queryType: {
+  queryReturn: {
     SP: space,
     NL: Object.assign({}, newline, { next: 'queryBody' }),
     singleQueryType: singleType,
@@ -146,7 +146,7 @@ function nuller () {
 %}
 
 # Top-level production rules.
-Sourcefile -> (Import | Type | Enum | Query):* {% id %}
+Sourcefile -> (Import | Type | Enum | Query):+ {% id %}
 
 # Import-related production rules.
 Import -> ImportStart TypeImport:+ ImportEnd Space {%
@@ -219,13 +219,13 @@ EnumValue -> %enumValue %comma:? Space:? {% ([enumValue]) => enumValue.value %}
 
 # Query-related production rules.
 Query -> SparqlQuery {% id %}
-SparqlQuery -> %sparql %queryName QueryArgs %colon QueryType LeftBrace QueryBody {%
+SparqlQuery -> %sparql %queryName QueryArgs %colon QueryReturn LeftBrace QueryBody {%
   ([, name, args, , type, , body]) => {
     return {
       nodeType: 'sparql',
       name: name.value,
       args: args,
-      type: type,
+      returns: type,
       body: body
     }
   }
@@ -251,7 +251,7 @@ QueryArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %array
     }
   }
 %}
-QueryType -> %singleQueryType | %arrayQueryType {%
+QueryReturn -> %singleQueryType | %arrayQueryType {%
   ([type]) => {
    return {
      isArray: (type.type === 'arrayQueryType'),

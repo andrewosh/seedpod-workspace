@@ -1,10 +1,12 @@
 import {
   Animal as OtherAnimal,
-  Human
+  Human,
+  fourLimbedAnimals
 } from 'animals'
 import {
   VIEW,
-  EDIT
+  EDIT,
+  CREATE
 } from '@seedpod/actions'
 
 enum Energy {
@@ -28,18 +30,16 @@ type Walker extends Human {
   walking?: [Dog]
 }
 
-tag type Location {
-  lat: float
-  lon: float
-  target: Human
-}
-
 action ViewWalker extends VIEW {
   filter: Walker
 }
 
 action EditWalker extends EDIT {
   filter: Walker
+}
+
+action CreateWalker extends CREATE {
+  returns: Walker
 }
 
 sparql query breedsForWalker (walker: string): [Breed] {
@@ -51,6 +51,6 @@ sparql query breedsForWalker (walker: string): [Breed] {
 
 sparql query linksToAnimals (): [any] {
   SELECT ?o WHERE {
-    ?s Animal ?o
+    @types Animal ?o
   }
 }

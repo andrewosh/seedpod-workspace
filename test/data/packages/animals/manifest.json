@@ -1,0 +1,6 @@
+{
+  "name": "animals",
+  "dependencies": {
+    "location-tagger": "1-alpha" 
+  }
+}
