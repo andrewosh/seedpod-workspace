@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/andrewosh/typed-hyperdb#readme",
   "devDependencies": {
+    "fs-extra": "^7.0.0",
     "hyperdb": "^3.1.2",
     "mkdirp": "^0.5.1",
     "random-access-memory": "^3.0.0",
@@ -39,6 +40,7 @@
     "codecs": "^1.2.1",
     "duplexify": "^3.6.0",
     "grpc": "^1.12.4",
+    "hyper-graph-db": "^0.3.4",
     "inherits": "^2.0.3",
     "lodash": "^4.17.10",
     "moo": "^0.4.3",
@@ -50,7 +52,13 @@
     "pumpify": "^1.5.1",
     "rxdb": "^7.6.1",
     "rxjs": "^6.2.1",
+    "subhyperdb": "^1.0.5",
     "through2": "^2.0.3",
     "uuid": "^3.2.1"
+  },
+  "standard": {
+    "ignore": [
+      "/lib/compiler/grammar.js"
+    ]
   }
 }

@@ -1,4 +1,11 @@
+/**
+ * @fileOverview
+ * @name create.js<typed-hyperdb>
+ * @author 
+ * @license 
+ */
 const p = require('path')
+const fs = require('fs-extra')
 const hyperdb = require('hyperdb')
 const uniondb = require('union-hyperdb')
 const corestore = require('corestore')
@@ -103,6 +110,24 @@ async function threeWriters () {
   return [tdb1, tdb2, tdb3]
 }
 
+
+/**
+ * Create package databases from a list of package directories.
+ *
+ * @param {Type of packages} packages - List of the form [<package dir 1>, <package dir 2>, ...]
+ */
+async function fromPackages (packages) {
+  let dbs = []
+  for (let pkg of packages) {
+    let db = await one()
+    let manifest = JSON.parse(await fs.readFile(p.join(pkg, 'manifest.json'), 'utf8'))
+    let iface = await fs.readFile(p.join(pkg, 'interface.spdl'), 'utf8')
+    await db.updatePackage(iface, manifest)
+    dbs.push(db)
+  }
+  return dbs
+}
+
 async function close () {
   for (var i = 0; i < stores.length; i++) {
     await stores[i].close()
@@ -115,5 +140,6 @@ module.exports = {
   twoShared,
   twoWriters,
   threeWriters,
+  fromPackages,
   close
 }
