@@ -120,7 +120,7 @@ async function fromPackages (packages) {
   let dbs = []
   for (let pkg of packages) {
     let db = await one()
-    let manifest = JSON.parse(await fs.readFile(p.join(pkg, 'manifest.json'), 'utf8'))
+    let manifest = await fs.readFile(p.join(pkg, 'manifest.json'), 'utf8')
     let iface = await fs.readFile(p.join(pkg, 'interface.spdl'), 'utf8')
     await db.updatePackage(iface, manifest)
     dbs.push(db)
