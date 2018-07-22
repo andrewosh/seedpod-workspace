@@ -8,7 +8,6 @@ const pumpify = require('pumpify')
 const duplexify = require('duplexify')
 const maybe = require('call-me-maybe')
 const logger = require('template-console-logger')
-const sub = require('subhyperdb')
 
 const Graph = require('hyper-graph-db')
 const PackageManager = require('./lib/packages')
@@ -37,9 +36,9 @@ function TypedHyperDB (db, opts) {
       await this.db.ready()
       this.key = this.db.key
 
-      this.graph = Graph(sub(this.db, naming.GRAPH_DB_ROOT))
-      this.packages = PackageManager(sub(this.db, naming.PACKAGE_ROOT))
-      this.records = RecordManager(sub(this.db, naming.RECORD_ROOT), this.packages)
+      this.graph = Graph(await this.db.sub(naming.GRAPH_DB_ROOT))
+      this.packages = PackageManager(await this.db.sub(naming.PACKAGE_ROOT))
+      this.records = RecordManager(await this.db.sub(naming.RECORD_ROOT), this.packages)
 
       return resolve()
     } catch (err) {
@@ -63,6 +62,11 @@ inherits(TypedHyperDB, events.EventEmitter)
 TypedHyperDB.prototype.updatePackage = async function (iface, manifest) {
   await this.ready()
   return this.packages.update(iface, manifest)
+}
+
+TypedHyperDB.prototype.publish = async function (tag, opts) {
+  await this.ready()
+  return this.packages.publish(tag, opts)
 }
 
 /*

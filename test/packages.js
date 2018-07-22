@@ -1,5 +1,6 @@
 const p = require('path')
 const fs = require('fs-extra')
+const protoSchema = require('protocol-buffers-schema')
 
 const create = require('./helpers/create.js')
 const test = require('tape')
@@ -22,14 +23,11 @@ test('can update previously imported interface/manifest files', async t => {
   t.true(iface.length > 0)
   let ifaceLength = iface.length
 
-  manifest = JSON.parse(await fs.readFile(p.join(PACKAGE_ROOT, 'animals', 'manifest.json'), 'utf8'))
+  manifest = await fs.readFile(p.join(PACKAGE_ROOT, 'animals', 'manifest.json'), 'utf8')
   iface = await fs.readFile(p.join(PACKAGE_ROOT, 'animals', 'interface.spdl'), 'utf8')
-  console.log('manifest:', manifest)
   await db.updatePackage(iface, manifest)
 
   let { manifest: man2, interface: iface2 } = await db.packages.getLatestPackageFiles()
-  console.log('man2:', man2)
-  console.log('typeof man2', typeof man2)
   t.same(man2.name, 'animals')
   t.notEqual(iface2.length, ifaceLength)
 
@@ -37,4 +35,21 @@ test('can update previously imported interface/manifest files', async t => {
   t.end()
 })
 
-test
+test('can publish an updated package', async t => {
+  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
+  let { manifest, interface: iface } = await db.packages.getLatestPackageFiles()
+  t.same(manifest.name, 'location-tagger')
+  t.true(iface.length > 0)
+
+  await db.publish('v1')
+
+  let { manifest: man2, schema } = await db.packages.getLatestPackageFiles()
+  let parsed = protoSchema.parse(schema)
+
+  t.same(parsed.messages.length, 2)
+  t.same(parsed.services[1].name, 'Location')
+  t.same(man2.version, 'v1')
+
+  await create.close()
+  t.end()
+})
