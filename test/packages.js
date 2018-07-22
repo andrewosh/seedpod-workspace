@@ -53,3 +53,21 @@ test('can publish an updated package', async t => {
   await create.close()
   t.end()
 })
+
+test('can publish a package with a simple import', async t => {
+  let [ db1, db2 ] = await create.fromPackages([
+    p.join(PACKAGE_ROOT, 'location'),
+    p.join(PACKAGE_ROOT, 'animals')
+  ])
+
+  await db1.publish('v1-alpha')
+  let key = db1.key
+
+  let { manifest, interface: iface } = await db2.packages.getLatestPackageFiles()
+  manifest.dependencies['location-tagger'] = {
+    key,
+    version: 'v1-alpha'
+  }
+  await db2.updatePackage(iface, manifest)
+  await db2.publish('v1')
+})

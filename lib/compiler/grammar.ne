@@ -126,7 +126,7 @@ const lexer = moo.states({
   },
   queryBody: {
     queryBodyClose: { match: /^\}/, next: 'main' },
-    queryContent: { match: /[^]+/, lineBreaks: true }
+    queryContent: { match: /[^]+?/, lineBreaks: true }
   }
 });
 let lexerNext = lexer.next.bind(lexer)
@@ -230,12 +230,11 @@ SparqlQuery -> %sparql %queryName QueryArgs %colon QueryReturn LeftBrace QueryBo
     }
   }
 %}
-QueryArgs -> %leftparen (QueryArg %comma:?):* %rightparen {%
+QueryArgs -> %leftparen (QueryArg %comma:?):? %rightparen {%
   ([, params, ]) => {
-    return params.map(([arg]) => {
-      return arg 
-    })
-  }  
+    if (!params) return null
+    return params.filter(n => n)
+  }
 %}
 QueryArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %arrayParamType) {%
   ([[name], [type]]) => {
