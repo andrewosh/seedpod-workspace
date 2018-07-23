@@ -19,7 +19,7 @@ let stores = []
 async function makeFactory () {
   var store = corestore(p.join(STORAGE_DIR, '' + idx++), {
     network: {
-      port: 5000 + idx
+      disable: true
     }
   })
   stores.push(store)
@@ -37,77 +37,44 @@ async function makeFactory () {
 }
 
 async function one () {
-  let factory = await makeFactory()
-  let db = uniondb(factory, { valueEncoding: 'binary' })
-  let tdb = typedb(db)
-  await tdb.ready()
-  return tdb
+  return many(1)
 }
 
 async function two () {
-  let factory = await makeFactory()
-  let db1 = uniondb(factory, { valueEncoding: 'binary' })
-  let tdb1 = typedb(db1)
-  await tdb1.ready()
-
-  let db2 = uniondb(factory, tdb1.key, { valueEncoding: 'binary' })
-  let tdb2 = typedb(db2)
-  await tdb2.ready()
-
-  return [tdb1, tdb2]
-}
-
-async function twoShared (cb) {
-  let factory = await makeFactory()
-
-  let db1 = uniondb(factory, { valueEncoding: 'binary' })
-  let tdb1 = typedb(db1)
-  await tdb1.ready()
-
-  let db2 = uniondb(factory, { valueEncoding: 'binary' })
-  var tdb2 = typedb(db2)
-  await tdb2.ready()
-
-  return [tdb1, tdb2]
+  return many(2, false, true)
 }
 
 async function twoWriters () {
-  let f1 = await makeFactory()
-  let f2 = await makeFactory()
-
-  let db1 = uniondb(f1, { valueEncoding: 'binary' })
-  let tdb1 = typedb(db1)
-  await tdb1.ready()
-
-  let db2 = uniondb(f2, tdb1.key, { valueEncoding: 'binary' })
-  var tdb2 = typedb(db2)
-  await tdb2.ready()
-  tdb1.authorize(tdb2.key)
-
-  return [tdb1, tdb2]
+  return many(2, true, false)
 }
 
 async function threeWriters () {
-  let f1 = await makeFactory()
-  let f2 = await makeFactory()
-  let f3 = await makeFactory()
+  return many(3, true, false)
+}
 
-  let db1 = uniondb(f1, { valueEncoding: 'binary' })
-  let tdb1 = typedb(db1)
-  await tdb1.ready()
+async function many (n, sameKey, sameFactory) {
+  sameKey = !!sameKey
+  sameFactory = !!sameFactory
 
-  let db2 = uniondb(f2, tdb1.key, { valueEncoding: 'binary' })
-  var tdb2 = typedb(db2)
-  await tdb2.ready()
+  if (sameFactory) var factory = await makeFactory()
 
-  let db3 = uniondb(f3, tdb1.key, { valueEncoding: 'binary' })
-  var tdb3 = typedb(db3)
-  await tdb3.ready()
+  let dbs = []
+  let key = null
+  let first = null
 
-  tdb1.authorize(tdb2.key)
-  tdb1.authorize(tdb3.key)
+  for (var i = 0; i < n; i++) {
+    if (!sameFactory) factory = await makeFactory()
+    let db = uniondb(factory, key, { valueEncoding: 'binary' })
+    let tdb = typedb(db)
+    await tdb.ready()
 
-  return [tdb1, tdb2, tdb3]
+    if (first) first.authorize(tdb.key)
+    first = first || tdb
+    key = key || tdb.key
+
+    dbs.push(tdb)
+  }
+  return dbs
 }
 
 
@@ -117,15 +84,17 @@ async function threeWriters () {
  * @param {Type of packages} packages - List of the form [<package dir 1>, <package dir 2>, ...]
  */
 async function fromPackages (packages) {
-  let dbs = []
-  for (let pkg of packages) {
-    let db = await one()
+  let tdbs = await many(packages.length, false, true)
+  for (var i = 0; i < packages.length; i++) {
+    let tdb = tdbs[i]
+    let pkg = packages[i]
+
     let manifest = await fs.readFile(p.join(pkg, 'manifest.json'), 'utf8')
     let iface = await fs.readFile(p.join(pkg, 'interface.spdl'), 'utf8')
-    await db.updatePackage(iface, manifest)
-    dbs.push(db)
+
+    await tdb.updatePackage(iface, manifest)
   }
-  return dbs
+  return tdbs
 }
 
 async function close () {
@@ -137,9 +106,9 @@ async function close () {
 module.exports = {
   one,
   two,
-  twoShared,
   twoWriters,
   threeWriters,
   fromPackages,
+  many,
   close
 }

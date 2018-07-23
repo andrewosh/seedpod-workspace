@@ -1,6 +1,7 @@
 const p = require('path')
 const fs = require('fs-extra')
 const protoSchema = require('protocol-buffers-schema')
+const datEncoding = require('dat-encoding')
 
 const create = require('./helpers/create.js')
 const test = require('tape')
@@ -65,7 +66,7 @@ test('can publish a package with a simple import', async t => {
 
   let { manifest, interface: iface } = await db2.packages.getLatestPackageFiles()
   manifest.dependencies['location-tagger'] = {
-    key,
+    key: datEncoding.encode(key),
     version: 'v1-alpha'
   }
   await db2.updatePackage(iface, manifest)
