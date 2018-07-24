@@ -46,13 +46,9 @@ function TypedHyperDB (db, opts) {
     }
   })
 
-  this.ready = function (cb) {
-    if (!cb) return this._ready
-    this._ready.then(() => {
-      return cb()
-    }).catch(err => {
-      return cb(err)
-    })
+  this.ready = async function (cb) {
+    await this._ready
+    if (cb) return process.nextTick(cb)
   }
 }
 inherits(TypedHyperDB, events.EventEmitter)

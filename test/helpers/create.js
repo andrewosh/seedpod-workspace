@@ -1,9 +1,3 @@
-/**
- * @fileOverview
- * @name create.js<typed-hyperdb>
- * @author 
- * @license 
- */
 const p = require('path')
 const fs = require('fs-extra')
 const hyperdb = require('hyperdb')
@@ -64,11 +58,11 @@ async function many (n, sameKey, sameFactory) {
 
   for (var i = 0; i < n; i++) {
     if (!sameFactory) factory = await makeFactory()
-    let db = uniondb(factory, key, { valueEncoding: 'binary' })
+    let db = uniondb(factory, sameKey ? key : null, { valueEncoding: 'binary' })
     let tdb = typedb(db)
     await tdb.ready()
 
-    if (first) first.authorize(tdb.key)
+    if (first && sameKey) first.authorize(tdb.key)
     first = first || tdb
     key = key || tdb.key
 

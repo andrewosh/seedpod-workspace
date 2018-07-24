@@ -45,30 +45,44 @@ test('can publish an updated package', async t => {
   await db.publish('v1')
 
   let { manifest: man2, schema } = await db.packages.getLatestPackageFiles()
-  let parsed = protoSchema.parse(schema)
 
-  t.same(parsed.messages.length, 2)
-  t.same(parsed.services[1].name, 'Location')
+  t.same(schema.messages.length, 3)
+  t.same(schema.services[1].name, 'Location')
   t.same(man2.version, 'v1')
 
   await create.close()
   t.end()
 })
 
-test('can publish a package with a simple import', async t => {
+test('can publish a package with a simple import and alias', async t => {
   let [ db1, db2 ] = await create.fromPackages([
     p.join(PACKAGE_ROOT, 'location'),
     p.join(PACKAGE_ROOT, 'animals')
   ])
 
   await db1.publish('v1-alpha')
-  let key = db1.key
 
+  let key = db1.key
   let { manifest, interface: iface } = await db2.packages.getLatestPackageFiles()
   manifest.dependencies['location-tagger'] = {
     key: datEncoding.encode(key),
     version: 'v1-alpha'
   }
   await db2.updatePackage(iface, manifest)
+
   await db2.publish('v1')
+  let { manifest: man2, schema } = await db2.packages.getLatestPackageFiles()
+  console.log('SCHEMA:', schema)
+  console.log('SCHEMA services:', schema.services.map(svc => svc.methods))
+  t.same(man2.version, 'v1')
+  t.same(schema.messages.length,  8)
+
+  await create.close()
+  t.end()
 })
+
+async function delay (ms) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => { resolve() }, ms)
+  })
+}

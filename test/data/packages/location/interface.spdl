@@ -1,5 +1,9 @@
 tag type Location {
+  coords: Coordinates
+  name?: string
+}
+
+struct Coordinates {
   lat: float
   lon: float
-  name?: string
 }
