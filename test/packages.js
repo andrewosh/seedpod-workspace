@@ -10,7 +10,7 @@ const PACKAGE_ROOT = p.join(__dirname, 'data', 'packages')
 
 test('can import interface/manifest files into an empty package database', async t => {
   let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
-  let { manifest, interface: iface } = await db.packages.getLatestPackageFiles()
+  let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
   await create.close()
@@ -19,7 +19,7 @@ test('can import interface/manifest files into an empty package database', async
 
 test('can update previously imported interface/manifest files', async t => {
   let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
-  let { manifest, interface: iface } = await db.packages.getLatestPackageFiles()
+  let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
   let ifaceLength = iface.length
@@ -28,7 +28,7 @@ test('can update previously imported interface/manifest files', async t => {
   iface = await fs.readFile(p.join(PACKAGE_ROOT, 'animals', 'interface.spdl'), 'utf8')
   await db.updatePackage(iface, manifest)
 
-  let { manifest: man2, interface: iface2 } = await db.packages.getLatestPackageFiles()
+  let { manifest: man2, interface: iface2 } = await db.packages.export()
   t.same(man2.name, 'animals')
   t.notEqual(iface2.length, ifaceLength)
 
@@ -38,13 +38,14 @@ test('can update previously imported interface/manifest files', async t => {
 
 test('can publish an updated package', async t => {
   let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
-  let { manifest, interface: iface } = await db.packages.getLatestPackageFiles()
+  let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
 
   await db.publish('v1')
 
-  let { manifest: man2, schema } = await db.packages.getLatestPackageFiles()
+  let { manifest: man2, schema } = await db.packages.export()
+  console.log('FIELDS:', schema.messages.map(msg => msg.fields))
 
   t.same(schema.messages.length, 3)
   t.same(schema.services[1].name, 'Location')
@@ -63,7 +64,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db1.publish('v1-alpha')
 
   let key = db1.key
-  let { manifest, interface: iface } = await db2.packages.getLatestPackageFiles()
+  let { manifest, interface: iface } = await db2.packages.export()
   manifest.dependencies['location-tagger'] = {
     key: datEncoding.encode(key),
     version: 'v1-alpha'
@@ -71,9 +72,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.updatePackage(iface, manifest)
 
   await db2.publish('v1')
-  let { manifest: man2, schema } = await db2.packages.getLatestPackageFiles()
-  console.log('SCHEMA:', schema)
-  console.log('SCHEMA services:', schema.services.map(svc => svc.methods))
+  let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
   t.same(schema.messages.length,  8)
 
