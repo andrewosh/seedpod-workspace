@@ -47,7 +47,7 @@ test('can publish an updated package', async t => {
   let { manifest: man2, schema } = await db.packages.export()
   console.log('FIELDS:', schema.messages.map(msg => msg.fields))
 
-  t.same(schema.messages.length, 3)
+  t.same(schema.messages[0].messages.length, 5)
   t.same(schema.services[1].name, 'Location')
   t.same(man2.version, 'v1')
 
@@ -74,7 +74,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.publish('v1')
   let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
-  t.same(schema.messages.length,  8)
+  t.same(schema.messages[0].messages.length,  10)
 
   await create.close()
   t.end()

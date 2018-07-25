@@ -13,7 +13,7 @@ let stores = []
 async function makeFactory () {
   var store = corestore(p.join(STORAGE_DIR, '' + idx++), {
     network: {
-      disable: true
+      port: 5000 + idx++
     }
   })
   stores.push(store)
@@ -31,7 +31,8 @@ async function makeFactory () {
 }
 
 async function one () {
-  return many(1)
+  let dbs = await many(1)
+  return dbs[0]
 }
 
 async function two () {

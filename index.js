@@ -7,20 +7,22 @@ const through = require('through2')
 const pumpify = require('pumpify')
 const duplexify = require('duplexify')
 const maybe = require('call-me-maybe')
-const logger = require('template-console-logger')
+const pify = require('pify')
 
 const Graph = require('hyper-graph-db')
 const PackageManager = require('./lib/packages')
 const RecordManager = require('./lib/records')
+const { logger } = require('./lib/util')
 
 const naming = require('./lib/naming')
+
+let log = logger('main')
 
 module.exports = TypedHyperDB
 
 function TypedHyperDB (db, opts) {
   if (!(this instanceof TypedHyperDB)) return new TypedHyperDB(db, opts)
   this.opts = opts || {}
-  this.log = this.opts.log || logger('typedb')
   this.db = db
 
   // Set in ready
@@ -36,9 +38,9 @@ function TypedHyperDB (db, opts) {
       await this.db.ready()
       this.key = this.db.key
 
-      this.graph = Graph(await this.db.sub(naming.GRAPH_DB_ROOT))
+      this.graph = pify(Graph(await this.db.sub(naming.GRAPH_DB_ROOT)))
       this.packages = PackageManager(await this.db.sub(naming.PACKAGE_ROOT))
-      this.records = RecordManager(await this.db.sub(naming.RECORD_ROOT), this.packages)
+      this.records = RecordManager(this.graph, this.packages)
 
       return resolve()
     } catch (err) {
@@ -63,6 +65,17 @@ TypedHyperDB.prototype.updatePackage = async function (iface, manifest) {
 TypedHyperDB.prototype.publish = async function (tag, opts) {
   await this.ready()
   return this.packages.publish(tag, opts)
+}
+
+TypedHyperDB.prototype.bind = async function (packageName, packageVersion) {
+  await this.ready()
+  let port = await this.records.bind(packageName, packageVersion)
+  return port
+}
+
+TypedHyperDB.prototype.install = async function (key, tag, opts) {
+  await this.ready()
+  await this.packages.install(key, tag, opts)
 }
 
 /*

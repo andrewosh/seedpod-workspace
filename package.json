@@ -27,6 +27,7 @@
   "homepage": "https://github.com/andrewosh/typed-hyperdb#readme",
   "devDependencies": {
     "fs-extra": "^7.0.0",
+    "grpc-promise": "^1.1.0",
     "hyperdb": "^3.1.2",
     "mkdirp": "^0.5.1",
     "random-access-memory": "^3.0.0",
@@ -49,16 +50,18 @@
     "moo": "^0.4.3",
     "nearley": "^2.13.0",
     "pascal-case": "^2.0.1",
+    "pify": "^3.0.0",
     "pouchdb-adapter-leveldb": "^6.4.3",
     "protocol-buffers": "^4.0.4",
     "protocol-buffers-schema": "^3.3.2",
+    "pump": "^3.0.0",
     "pumpify": "^1.5.1",
     "rxdb": "^7.6.1",
     "rxjs": "^6.2.1",
     "subhyperdb": "^1.0.5",
     "through2": "^2.0.3",
     "tmp-promise": "^1.0.5",
-    "uuid": "^3.2.1"
+    "uuid": "^3.3.2"
   },
   "standard": {
     "ignore": [
