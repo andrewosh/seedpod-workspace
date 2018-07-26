@@ -44,7 +44,8 @@ const lexer = moo.states({
     tagType: { match: 'tag type', push: 'type' },
     action: { match: 'action', push: 'type' },
     enum: { match: 'enum', push: 'enum' },
-    sparql: { match: 'sparql query', push: 'sparqlQuery' }
+    trigger: { match: 'trigger', push: 'trigger' },
+    query: { match: 'query', push: 'query' }
   },
 
   // import states
@@ -99,8 +100,8 @@ const lexer = moo.states({
     rightbrace: { match: '}', next: 'main' }
   },
 
-  // sparql query states
-  sparqlQuery: {
+  // query states
+  query: {
     SP: space,
     NL: newline,
     queryName: /[a-zA-Z0-9]+/,
@@ -127,6 +128,26 @@ const lexer = moo.states({
   queryBody: {
     queryBodyClose: { match: /^\}/, next: 'main' },
     queryContent: { match: /[^]+?/, lineBreaks: true }
+  },
+
+  // trigger states
+  trigger: {
+    NL: Object.assign({}, newline, { push: 'triggerBody'}),
+    SP: space,
+    triggerName: /[a-zA-Z0-9]+/ ,
+    leftparen: { match: '(', push: 'triggerType' },
+    leftbrace: '{'
+  },
+  triggerType: {
+    SP: space,
+    NL: newline,
+    rightparen: { match: ')', pop: true },
+    requiredParamName: requiredField,
+    singleParamType: singleType,
+  },
+  triggerBody: {
+    triggerBodyClose: { match: /^\}/, next: 'main' },
+    triggerContent: { match: /[^]+?/, lineBreaks: true }
   }
 });
 let lexerNext = lexer.next.bind(lexer)
@@ -146,7 +167,7 @@ function nuller () {
 %}
 
 # Top-level production rules.
-Sourcefile -> (Import | Type | Enum | Query):+ {% id %}
+Sourcefile -> (Import | Type | Enum | Trigger | Query):+ {% id %}
 
 # Import-related production rules.
 Import -> ImportStart TypeImport:+ ImportEnd Space {%
@@ -219,10 +240,10 @@ EnumValue -> %enumValue %comma:? Space:? {% ([enumValue]) => enumValue.value %}
 
 # Query-related production rules.
 Query -> SparqlQuery {% id %}
-SparqlQuery -> %sparql %queryName QueryArgs %colon QueryReturn LeftBrace QueryBody {%
+SparqlQuery -> %query %queryName QueryArgs %colon QueryReturn LeftBrace QueryBody {%
   ([, name, args, , type, , body]) => {
     return {
-      nodeType: 'sparql',
+      nodeType: 'query',
       name: name.value,
       args: args,
       returns: type,
@@ -259,6 +280,30 @@ QueryReturn -> %singleQueryType | %arrayQueryType {%
   }
 %}
 QueryBody -> %queryContent:+ %queryBodyClose Space:* {%
+  ([contents]) => contents.join('')
+%}
+
+# Trigger-related production rules.
+Trigger -> %trigger %triggerName TriggerType LeftBrace TriggerBody {%
+  ([, name, type, , body]) => {
+    return {
+      nodeType: 'trigger',
+      name: name.value,
+      type: type,
+      body: body
+    }
+  }
+%}
+TriggerType -> %leftparen SingleTriggerType %rightparen {% ([, type, ]) => type %}
+SingleTriggerType -> %requiredParamName %singleParamType {%
+  ([name, type]) => {
+    return {
+      typeName: name.value,
+      typeType: type.value
+    }
+  }
+%}
+TriggerBody -> %triggerContent:+ %triggerBodyClose Space:* {%
   ([contents]) => contents.join('')
 %}
 

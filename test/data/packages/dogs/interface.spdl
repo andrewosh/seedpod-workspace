@@ -42,14 +42,20 @@ action CreateWalker extends CREATE {
   returns: Walker
 }
 
-sparql query breedsForWalker (walker: string): [Breed] {
+trigger oldWalkers (walker: Walker) {
+  selector: {
+    age: { $gt: 80 }
+  }
+}
+
+query breedsForWalker (walker: string): [Breed] {
   SELECT ?breed WHERE {
     $walker Walker.walking ?o
     ?o Dog.breed ?breed
   }
 }
 
-sparql query linksToAnimals (): [any] {
+query linksToAnimals (): [any] {
   SELECT ?o WHERE {
     @types Animal ?o
   }
