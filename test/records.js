@@ -28,6 +28,7 @@ test('can insert triples for a type', async t => {
   var gotResponse = false
   const call = client.Insert()
   call.on('data', data => {
+    console.log('RECEIVED DATA:', data)
     t.true(data.id)
     gotResponse = true
     call.destroy()

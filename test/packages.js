@@ -47,8 +47,8 @@ test('can publish an updated package', async t => {
   let { manifest: man2, schema } = await db.packages.export()
   console.log('FIELDS:', schema.messages.map(msg => msg.fields))
 
-  t.same(schema.messages[0].messages.length, 5)
-  t.same(schema.services[1].name, 'Location')
+  t.same(schema.messages[0].messages.length, 6)
+  t.same(schema.services[3].name, 'Location')
   t.same(man2.version, 'v1')
 
   await create.close()
@@ -74,7 +74,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.publish('v1')
   let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
-  t.same(schema.messages[0].messages.length, 10)
+  t.same(schema.messages[0].messages.length, 11)
 
   await create.close()
   t.end()
@@ -90,11 +90,8 @@ test('can publish a package with multiple imports and a complicated interface', 
 
   await db1.publish('v1')
   let locationKey = db1.key
-  console.log('PUBLISHED LOCATION')
   await db2.publish('v1')
   let seedpodKey = db2.key
-
-  console.log('PUBLISHED FIRST DEPS')
 
   let { manifest: m1, interface: i1 } = await db3.packages.export()
   m1.dependencies['location-tagger'] = {
@@ -103,7 +100,6 @@ test('can publish a package with multiple imports and a complicated interface', 
   }
   await db3.updatePackage(i1, m1)
   await db3.publish('v1')
-  console.log('PUBLISHED ANIMALS')
   let animalsKey = db3.key
 
   let { manifest: m2, interface: i2 } = await db4.packages.export()
@@ -123,7 +119,7 @@ test('can publish a package with multiple imports and a complicated interface', 
   console.log('COMPILED:', proto)
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
-  t.same(schema.messages[0].messages.length, 19)
+  t.same(schema.messages[0].messages.length, 14)
 
   await create.close()
   t.end()

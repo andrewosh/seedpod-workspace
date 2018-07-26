@@ -30,6 +30,7 @@ function TypedHyperDB (db, opts) {
   this.graph = null
   this.packages = null
   this.records = null
+  this.triggers = null
 
   this._unwatch = null
 
@@ -38,9 +39,12 @@ function TypedHyperDB (db, opts) {
       await this.db.ready()
       this.key = this.db.key
 
-      this.graph = pify(Graph(await this.db.sub(naming.GRAPH_DB_ROOT)))
+      this.graph = pify(Graph(await this.db.sub(naming.GRAPH_ROOT), { includeMetadata: true }), {
+        include: ['put', 'get', 'del', 'search']
+      })
+      this.triggers = await this.db.sub(naming.TRIGGERS_ROOT)
       this.packages = PackageManager(await this.db.sub(naming.PACKAGE_ROOT))
-      this.records = RecordManager(this.graph, this.packages)
+      this.records = RecordManager(this.graph, this.triggers, this.packages)
 
       return resolve()
     } catch (err) {
