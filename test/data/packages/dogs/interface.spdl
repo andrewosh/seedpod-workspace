@@ -20,9 +20,13 @@ struct AgeInfo {
   age: uint16
 }
 
-type Dog extends Animal {
-  breed: string
+type Breed {
+  name: string
   energy?: Energy
+}
+
+type Dog extends Animal {
+  breed: Breed
 }
 
 type Walker extends Human {
@@ -55,7 +59,7 @@ query breedsForWalker (walker: string): [Breed] {
   }
 }
 
-query linksToAnimals (): [any] {
+query linksToAnimals (): [Id] {
   SELECT ?o WHERE {
     @types Animal ?o
   }

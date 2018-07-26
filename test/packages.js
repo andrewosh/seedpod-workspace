@@ -74,14 +74,57 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.publish('v1')
   let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
-  t.same(schema.messages[0].messages.length,  10)
+  t.same(schema.messages[0].messages.length, 10)
 
   await create.close()
   t.end()
 })
 
-async function delay (ms) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => { resolve() }, ms)
-  })
-}
+test('can publish a package with multiple imports and a complicated interface', async t => {
+  let [ db1, db2, db3, db4 ] = await create.fromPackages([
+    p.join(PACKAGE_ROOT, 'location'),
+    p.join(PACKAGE_ROOT, 'seedpod'),
+    p.join(PACKAGE_ROOT, 'animals'),
+    p.join(PACKAGE_ROOT, 'dogs')
+  ])
+
+  await db1.publish('v1')
+  let locationKey = db1.key
+  console.log('PUBLISHED LOCATION')
+  await db2.publish('v1')
+  let seedpodKey = db2.key
+
+  console.log('PUBLISHED FIRST DEPS')
+
+  let { manifest: m1, interface: i1 } = await db3.packages.export()
+  m1.dependencies['location-tagger'] = {
+    key: datEncoding.encode(locationKey),
+    version: 'v1'
+  }
+  await db3.updatePackage(i1, m1)
+  await db3.publish('v1')
+  console.log('PUBLISHED ANIMALS')
+  let animalsKey = db3.key
+
+  let { manifest: m2, interface: i2 } = await db4.packages.export()
+  m2.dependencies['animals'] = {
+    key: datEncoding.encode(animalsKey),
+    version: 'v1'
+  }
+  m2.dependencies['@seedpod/actions'] = {
+    key: datEncoding.encode(seedpodKey),
+    version: 'v1'
+  }
+  console.log('m2:', m2, 'i2:', i2)
+  await db4.updatePackage(i2, m2)
+  await db4.publish('v1')
+
+  let { manifest: m3, proto, schema } = await db4.packages.export()
+  console.log('COMPILED:', proto)
+  t.same(m3.version, 'v1')
+  // TODO: test the resulting schema structure.
+  t.same(schema.messages[0].messages.length, 19)
+
+  await create.close()
+  t.end()
+})

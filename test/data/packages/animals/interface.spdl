@@ -1,0 +1,30 @@
+import {
+  Location as LocationTag,
+  Coordinates
+} from 'location-tagger'
+
+type Animal {
+  name: string
+  limbCount: uint16
+  populationCount?: uint64
+}
+
+type Human {
+  name: string
+}
+
+type ExtinctAnimal extends Animal {
+  extinctionDate: string
+}
+
+tag type AnimalTag {
+  location: LocationTag
+  lastUpdate?: uint64
+}
+
+query fourLimbedAnimals (): [Animal] {
+  SELECT * WHERE {
+    ?s Animal.limbCount ?o
+    FILTER (?o == 4)
+  }
+}

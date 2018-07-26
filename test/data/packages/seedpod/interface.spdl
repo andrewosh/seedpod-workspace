@@ -1,7 +1,3 @@
 action VIEW {}
 action EDIT {}
 action CREATE {}
-
-type BaseType {
-  string _id
-}
