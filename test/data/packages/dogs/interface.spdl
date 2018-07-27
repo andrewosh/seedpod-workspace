@@ -34,6 +34,9 @@ type Walker extends Human {
   walking?: [Dog]
 }
 
+method createOldWalker (age: AgeInfo): Walker {}
+method deleteAllWalkers (): bool {}
+
 action ViewWalker extends VIEW {
   filter: Walker
 }
@@ -45,6 +48,7 @@ action EditWalker extends EDIT {
 action CreateWalker extends CREATE {
   returns: Walker
 }
+
 
 trigger oldWalkers (walker: Walker) {
   selector: {

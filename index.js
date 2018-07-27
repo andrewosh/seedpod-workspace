@@ -39,7 +39,7 @@ function TypedHyperDB (db, opts) {
       await this.db.ready()
       this.key = this.db.key
 
-      this.graph = pify(Graph(await this.db.sub(naming.GRAPH_ROOT), { includeMetadata: true }), {
+      this.graph = pify(Graph(await this.db.sub(naming.GRAPH_ROOT)), {
         include: ['put', 'get', 'del', 'search']
       })
       this.triggers = await this.db.sub(naming.TRIGGERS_ROOT)

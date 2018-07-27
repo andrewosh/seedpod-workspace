@@ -45,7 +45,8 @@ const lexer = moo.states({
     action: { match: 'action', push: 'type' },
     enum: { match: 'enum', push: 'enum' },
     trigger: { match: 'trigger', push: 'trigger' },
-    query: { match: 'query', push: 'query' }
+    query: { match: 'query', push: 'function' },
+    method: { match: 'method', push: 'function' }
   },
 
   // import states
@@ -100,34 +101,35 @@ const lexer = moo.states({
     rightbrace: { match: '}', next: 'main' }
   },
 
-  // query states
-  query: {
+  // function states
+  function: {
     SP: space,
     NL: newline,
-    queryName: /[a-zA-Z0-9]+/,
-    leftparen: { match: '(', push: 'queryArgs' },
-    colon: { match: ':', push: 'queryReturn' }
+    functionName: /[a-zA-Z0-9]+/,
+    leftparen: { match: '(', push: 'functionArgs' },
+    colon: { match: ':', push: 'functionReturn' }
   },
-  queryArgs: {
+  functionArgs: {
     SP: space,
     NL: newline,
     rightparen: { match: ')', pop: true },
-    comma: { match: ',', next: 'queryArgs' },
+    comma: { match: ',', next: 'functionArgs' },
     optionalParamName: optionalField,
     requiredParamName: requiredField,
     singleParamType: singleType,
     arrayParamType: arrayType
   },
-  queryReturn: {
+  functionReturn: {
     SP: space,
-    NL: Object.assign({}, newline, { next: 'queryBody' }),
-    singleQueryType: singleType,
-    arrayQueryType: arrayType,
+    NL: Object.assign({}, newline, { next: 'functionBody' }),
+    emptyBody: { match: '{}', next: 'main' },
+    singleFunctionType: singleType,
+    arrayFunctionType: arrayType,
     leftbrace: '{'
   },
-  queryBody: {
-    queryBodyClose: { match: /^\}/, next: 'main' },
-    queryContent: { match: /[^]+?/, lineBreaks: true }
+  functionBody: {
+    functionBodyClose: { match: /^\}/, next: 'main' },
+    functionContent: { match: /[^]+?/, lineBreaks: true }
   },
 
   // trigger states
@@ -167,7 +169,7 @@ function nuller () {
 %}
 
 # Top-level production rules.
-Sourcefile -> (Import | Type | Enum | Trigger | Query):+ {% id %}
+Sourcefile -> (Import | Type | Enum | Trigger | Method | Query):+ {% id %}
 
 # Import-related production rules.
 Import -> ImportStart TypeImport:+ ImportEnd Space {%
@@ -238,12 +240,32 @@ Enum -> "enum" %enumName LeftBrace EnumValue:+ RightBrace {%
 %}
 EnumValue -> %enumValue %comma:? Space:? {% ([enumValue]) => enumValue.value %}
 
-# Query-related production rules.
-Query -> SparqlQuery {% id %}
-SparqlQuery -> %query %queryName QueryArgs %colon QueryReturn LeftBrace QueryBody {%
-  ([, name, args, , type, , body]) => {
+# Function-related production rules.
+Query -> %query Function {%
+  ([, { name, args, returns, body }]) => {
     return {
       nodeType: 'query',
+      name,
+      args,
+      returns,
+      body
+    }
+  }
+%}
+Method -> %method Function {%
+  ([, { name, args, returns, body }]) => {
+    return {
+      nodeType: 'method',
+      name,
+      args,
+      returns
+    }
+  }
+%}
+Function -> %functionName FunctionArgs %colon FunctionReturn (LeftBrace | %emptyBody) Space:? FunctionBody:? {%
+  ([name, args, , type, , , body]) => {
+    return {
+      nodeType: 'function',
       name: name.value,
       args: args,
       returns: type,
@@ -251,13 +273,13 @@ SparqlQuery -> %query %queryName QueryArgs %colon QueryReturn LeftBrace QueryBod
     }
   }
 %}
-QueryArgs -> %leftparen (QueryArg %comma:?):? %rightparen {%
+FunctionArgs -> %leftparen (FunctionArg %comma:?):? %rightparen {%
   ([, params, ]) => {
     if (!params) return null
     return params.filter(n => n)
   }
 %}
-QueryArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %arrayParamType) {%
+FunctionArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %arrayParamType) {%
   ([[name], [type]]) => {
     return {
       paramName: {
@@ -271,15 +293,16 @@ QueryArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %array
     }
   }
 %}
-QueryReturn -> %singleQueryType | %arrayQueryType {%
-  ([type]) => {
+FunctionReturn -> (%singleFunctionType | %arrayFunctionType) {%
+  ([[type]]) => {
+   console.log('TYPE:', type)
    return {
-     isArray: (type.type === 'arrayQueryType'),
+     isArray: (type.type === 'arrayFunctionType'),
      name: type.value
     }
   }
 %}
-QueryBody -> %queryContent:+ %queryBodyClose Space:* {%
+FunctionBody -> %functionContent:+ %functionBodyClose Space:* {%
   ([contents]) => contents.join('')
 %}
 
