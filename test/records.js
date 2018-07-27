@@ -19,6 +19,7 @@ test('can insert triples for a type', async t => {
 
   let packageDb = await create.one()
   await packageDb.install(key, 'v1')
+
   let handle = await packageDb.bind('location-tagger', 'v1')
 
   let { proto } = await appDb.packages.export()
