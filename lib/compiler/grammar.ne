@@ -41,7 +41,6 @@ const lexer = moo.states({
     import: { match: 'import', push: 'import' },
     type: { match: 'type', push: 'type' },
     struct: { match: 'struct', push: 'type' },
-    tagType: { match: 'tag type', push: 'type' },
     action: { match: 'action', push: 'type' },
     enum: { match: 'enum', push: 'enum' },
     trigger: { match: 'trigger', push: 'trigger' },
@@ -206,12 +205,11 @@ Type -> TypeSignature LeftBrace Field:* Space:? RightBrace {%
     }
   }
 %}
-TypeSignature -> (%type | %tagType | %struct | %action) %typeName %typeParent:? Space:? {%
+TypeSignature -> (%type | %struct | %action) %typeName %typeParent:? Space:? {%
   ([typeType, typeName, typeParent]) => {
      return {
        typeName: typeName.value,
        typeParent: typeParent ? typeParent.value : null,
-       isTag: (typeType[0].type === 'tagType'),
        isStruct: (typeType[0].type === 'struct'),
        isAction: (typeType[0].type === 'action')
      }

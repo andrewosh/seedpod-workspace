@@ -1,4 +1,4 @@
-tag type Location {
+type Location {
   coords: Coordinates
   name?: string
 }
