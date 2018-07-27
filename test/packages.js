@@ -48,7 +48,7 @@ test('can publish an updated package', async t => {
   console.log('FIELDS:', schema.messages.map(msg => msg.fields))
 
   t.same(schema.messages[0].messages.length, 6)
-  t.same(schema.services[3].name, 'Location')
+  t.same(schema.services[4].name, 'Location')
   t.same(man2.version, 'v1')
 
   await create.close()
