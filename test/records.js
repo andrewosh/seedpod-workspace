@@ -10,7 +10,7 @@ const create = require('./helpers/create')
 
 const PACKAGE_ROOT = p.join(__dirname, 'data', 'packages')
 
-test('can insert triples for a type', async t => {
+test('can insert a single record for a simple type', async t => {
   let [ appDb ] = await create.fromPackages([
     p.join(PACKAGE_ROOT, 'location')
   ])
@@ -19,18 +19,20 @@ test('can insert triples for a type', async t => {
 
   let packageDb = await create.one()
   await packageDb.install(key, 'v1')
+  let { proto } = await appDb.packages.export()
+  console.log('PROTO:', proto)
 
   let handle = await packageDb.bind('location-tagger', 'v1')
 
-  let { proto } = await appDb.packages.export()
   let root = await createRootClient(proto)
   let client = new root.Location(`localhost:${handle.port}`, grpc.credentials.createInsecure())
 
   var gotResponse = false
-  const call = client.Insert()
+  const call = client.Put()
   call.on('data', data => {
     console.log('RECEIVED DATA:', data)
-    t.true(data.id)
+    t.true(data.id._id)
+    t.true(data.id._rev)
     gotResponse = true
     call.destroy()
   })
