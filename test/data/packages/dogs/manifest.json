@@ -1,7 +1,8 @@
 {
   "name": "dogs",
+  "version": "v4",
   "dependencies": {
-    "animals": "1-beta",
-    "@seedpod/actions": "1-theta"
+    "animals": "v2",
+    "@seedpod/actions": "v3"
   }
 }

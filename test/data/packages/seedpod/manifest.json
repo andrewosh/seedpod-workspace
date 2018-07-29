@@ -1,3 +1,4 @@
 {
-  "name": "@seedpod/actions"
+  "name": "@seedpod/actions",
+  "version": "v3"
 }
