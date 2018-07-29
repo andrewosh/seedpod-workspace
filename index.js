@@ -1,8 +1,6 @@
 const events = require('events')
 const inherits = require('inherits')
 
-const protoSchema = require('protocol-buffers-schema')
-const asyncMap = require('async-each')
 const through = require('through2')
 const pumpify = require('pumpify')
 const duplexify = require('duplexify')
@@ -12,11 +10,8 @@ const pify = require('pify')
 const Graph = require('hyper-graph-db')
 const PackageManager = require('./lib/packages')
 const RecordManager = require('./lib/records')
-const { logger } = require('./lib/util')
 
 const naming = require('./lib/naming')
-
-let log = logger('main')
 
 module.exports = TypedHyperDB
 
@@ -87,70 +82,16 @@ TypedHyperDB.prototype.install = async function (key, tag, opts) {
   await this.packages.install(key, tag, opts)
 }
 
-/*
- * Create multiple types from a protocol buffer schema. This enables `insert`, `delete`,
- * `get`, and graph operations over those types.
- *
- * Additionally, these types can be shared with other filesystems via importing.
- *
- * Types will be implicitly versioned based on a backwards-compatibility check.
- * If a new type with the same name either:
- *   a) Modifies the type for an existing tag
- *   b) Changes an optional type to a required type
- * then the new type will be assigned a new major version.
- *
- * If neither of those conditions are true, then the new type will be given a
- * new minor version.
- */
-TypedHyperDB.prototype.registerTypes = async function (schema, opts, cb) {
-  if (typeof opts === 'function') return this.registerTypes(schema, null, opts)
-  opts = opts || {}
-  var self = this
-
-  // TODO: Better copy?
-  var original = protoSchema.parse(schema)
-  var transformed = protoSchema.parse(schema)
-
-  var packageName = transformed.package
-
-  return maybe(cb, new Promise((resolve, reject) => {
-    // 1) Get version by checking for conflicts with an existing version.
-    // 2) If no existing version, then the version is 1.0
-    // 3) After the version bump, register each individual type.
-    self._getSchema(packageName, function (err, schema, packageVersion) {
-      if (err) return cb(err)
-      asyncMap(transformed.messages, function (message, next) {
-        return self._registerType(original, {
-          name: message.name,
-          packageName: packageName,
-          // Set in _registerType.
-          version: null,
-          packageVersion: (packageVersion) ? { major: packageVersion.major + 1 } : { major: 1 },
-          // Populated in _registerType.
-          fieldTypeMap: {},
-          message: message
-        }, next)
-      }, function (err, versions) {
-        if (err) return reject(err)
-        self._registerPackage(packageName, transformed, original, function (err, packageVersion) {
-          if (err) return reject(err)
-          var typesToVersions = {}
-          for (var i = 0; i < versions.length; i++) {
-            typesToVersions[transformed.messages[i].name] = versions[i]
-          }
-          return resolve(typesToVersions)
-        })
-      })
-    })
-  }))
-}
-
 // TODO: Deduplicate code between this and createReadStream.
+// TODO: reimplemeent. currently broken.
 TypedHyperDB.prototype.createDiffStream = async function (typeName, opts) {
   opts = opts || {}
   var self = this
 
-  var typeInfo = Type.getInfo(typeName)
+  // TODO
+  // var typeInfo = Type.getInfo(typeName)
+  var typeInfo = null
+
   var stream = duplexify.obj()
   stream.pause()
   stream.setWritable(null)

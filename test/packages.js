@@ -1,6 +1,5 @@
 const p = require('path')
 const fs = require('fs-extra')
-const protoSchema = require('protocol-buffers-schema')
 const datEncoding = require('dat-encoding')
 
 const create = require('./helpers/create.js')
@@ -71,7 +70,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.updatePackage(iface, manifest)
 
   await db2.publish('v1', { skipVersioning: true })
-  let { manifest: man2, schema, proto } = await db2.packages.export()
+  let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
   t.same(schema.messages[0].messages.length, 20)
 
@@ -113,7 +112,7 @@ test('can publish a package with multiple imports and a complicated interface', 
   await db4.updatePackage(i2, m2)
   await db4.publish('v1', { skipVersioning: true })
 
-  let { manifest: m3, proto, schema } = await db4.packages.export()
+  let { manifest: m3, schema } = await db4.packages.export()
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
   t.same(schema.messages[0].messages.length, 25)
