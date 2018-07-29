@@ -11,7 +11,7 @@ const create = require('./helpers/create')
 
 const PACKAGE_ROOT = p.join(__dirname, 'data', 'packages')
 
-test('can insert a single record for a simple type', async t => {
+test.skip('can insert a single record for a simple type', async t => {
   let [client, handle] = await registerAndBind('location-tagger', 'Location')
 
   let doc = {
@@ -31,7 +31,7 @@ test('can insert a single record for a simple type', async t => {
   t.end()
 })
 
-test('can insert and get a single record for a simple type by ID (no revision)', async t => {
+test.skip('can insert and get a single record for a simple type by ID (no revision)', async t => {
   let [client, handle] = await registerAndBind('location-tagger', 'Location')
 
   let doc = {
@@ -59,7 +59,7 @@ test('can insert and get a single record for a simple type by ID (no revision)',
   t.end()
 })
 
-test.skip('can insert and get a complicated record with nested types', async t => {
+test('can insert and get a complicated record with nested types', async t => {
   let [client, handle] = await registerAndBind('dogs', 'Walker')
 
   let doc = {
@@ -67,12 +67,13 @@ test.skip('can insert and get a complicated record with nested types', async t =
       birthday: '9/28/1990',
       age: 27
     },
+    name: 'Fred',
     walking: [
       {
         breed: {
           name: 'Pug',
           // TODO: get the protobuf types for enum references etc
-          energy: 1
+          energy: 'LOW'
         },
         name: 'Evan',
         limbCount: 4,
@@ -96,7 +97,7 @@ test.skip('can insert and get a complicated record with nested types', async t =
   t.same(value.age.birthday, '9/28/1990')
   t.same(value.walking.length, 1)
   t.same(value.walking[0].breed.name, 'Pug')
-  t.same(value.walking[0].breed.energy, 1)
+  t.same(value.walking[0].breed.energy, 'LOW')
   t.same(value.walking[0].limbCount, 4)
 
   await handle.close()
@@ -113,7 +114,6 @@ async function insert (t, client, doc) {
   return new Promise(async (resolve, reject) => {
     const call = client.Put()
     call.on('data', data => {
-      console.log('REQ RESPONSE:', JSON.stringify(data))
       _id = data.id._id
       _revs = data.id._revs
       call.destroy()
@@ -142,7 +142,6 @@ async function get (t, client, _id, _revs) {
       return reject(err)
     })
     call.on('end', async () => {
-      console.log('RSP:', JSON.stringify(rsp))
       return resolve(rsp)
     })
 
@@ -151,18 +150,21 @@ async function get (t, client, _id, _revs) {
 }
 
 async function createAndPublish (name) {
-  let manifest = JSON.parse(await fs.readFile(p.join(PACKAGE_ROOT, name, 'manifest.json'), 'utf8'))
-  let iface = await fs.readFile(p.join(PACKAGE_ROOT, name, 'interface.spdl'), 'utf8')
+  let dir = name.replace(/\//g, '-')
+  let manifest = JSON.parse(await fs.readFile(p.join(PACKAGE_ROOT, dir, 'manifest.json'), 'utf8'))
+  let iface = await fs.readFile(p.join(PACKAGE_ROOT, dir, 'interface.spdl'), 'utf8')
   let deps = manifest.dependencies
   if (deps) {
     for (let depName of Object.keys(deps)) {
-      let { db } = await createAndPublish(depName)
-      deps[depName].key = datEncoding.encode(db.key)
+      let { db, version } = await createAndPublish(depName)
+      deps[depName] = {
+        key: datEncoding.encode(db.key),
+        version: version
+      }
     }
   }
 
   let appDb = await create.one()
-  console.log('updating package with iface', iface, 'manifest:', manifest)
   await appDb.updatePackage(iface, manifest)
   await appDb.publish(manifest.version, { skipVersioning: true })
 

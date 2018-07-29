@@ -9,7 +9,7 @@ const test = require('tape')
 const PACKAGE_ROOT = p.join(__dirname, 'data', 'packages')
 
 test('can import interface/manifest files into an empty package database', async t => {
-  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
+  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location-tagger') ])
   let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
@@ -18,7 +18,7 @@ test('can import interface/manifest files into an empty package database', async
 })
 
 test('can update previously imported interface/manifest files', async t => {
-  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
+  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location-tagger') ])
   let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
@@ -37,12 +37,12 @@ test('can update previously imported interface/manifest files', async t => {
 })
 
 test('can publish an updated package', async t => {
-  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location') ])
+  let [ db ] = await create.fromPackages([ p.join(PACKAGE_ROOT, 'location-tagger') ])
   let { manifest, interface: iface } = await db.packages.export()
   t.same(manifest.name, 'location-tagger')
   t.true(iface.length > 0)
 
-  await db.publish('v1')
+  await db.publish('v1', { skipVersioning: true })
 
   let { manifest: man2, schema } = await db.packages.export()
 
@@ -56,11 +56,11 @@ test('can publish an updated package', async t => {
 
 test('can publish a package with a simple import and alias', async t => {
   let [ db1, db2 ] = await create.fromPackages([
-    p.join(PACKAGE_ROOT, 'location'),
+    p.join(PACKAGE_ROOT, 'location-tagger'),
     p.join(PACKAGE_ROOT, 'animals')
   ])
 
-  await db1.publish('v1-alpha')
+  await db1.publish('v1-alpha', { skipVersioning: true })
 
   let key = db1.key
   let { manifest, interface: iface } = await db2.packages.export()
@@ -70,7 +70,7 @@ test('can publish a package with a simple import and alias', async t => {
   }
   await db2.updatePackage(iface, manifest)
 
-  await db2.publish('v1')
+  await db2.publish('v1', { skipVersioning: true })
   let { manifest: man2, schema, proto } = await db2.packages.export()
   t.same(man2.version, 'v1')
   t.same(schema.messages[0].messages.length, 20)
@@ -81,15 +81,15 @@ test('can publish a package with a simple import and alias', async t => {
 
 test('can publish a package with multiple imports and a complicated interface', async t => {
   let [ db1, db2, db3, db4 ] = await create.fromPackages([
-    p.join(PACKAGE_ROOT, 'location'),
-    p.join(PACKAGE_ROOT, 'seedpod'),
+    p.join(PACKAGE_ROOT, 'location-tagger'),
+    p.join(PACKAGE_ROOT, '@seedpod-actions'),
     p.join(PACKAGE_ROOT, 'animals'),
     p.join(PACKAGE_ROOT, 'dogs')
   ])
 
-  await db1.publish('v1')
+  await db1.publish('v1', { skipVersioning: true })
   let locationKey = db1.key
-  await db2.publish('v1')
+  await db2.publish('v1', { skipVersioning: true })
   let seedpodKey = db2.key
 
   let { manifest: m1, interface: i1 } = await db3.packages.export()
@@ -98,7 +98,7 @@ test('can publish a package with multiple imports and a complicated interface', 
     version: 'v1'
   }
   await db3.updatePackage(i1, m1)
-  await db3.publish('v1')
+  await db3.publish('v1', { skipVersioning: true })
   let animalsKey = db3.key
 
   let { manifest: m2, interface: i2 } = await db4.packages.export()
@@ -111,10 +111,9 @@ test('can publish a package with multiple imports and a complicated interface', 
     version: 'v1'
   }
   await db4.updatePackage(i2, m2)
-  await db4.publish('v1')
+  await db4.publish('v1', { skipVersioning: true })
 
   let { manifest: m3, proto, schema } = await db4.packages.export()
-  console.log('COMPILED:', proto)
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
   t.same(schema.messages[0].messages.length, 25)

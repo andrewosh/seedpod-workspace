@@ -17,7 +17,7 @@ enum Energy {
 
 struct AgeInfo {
   birthday: string
-  age: uint16
+  age: uint32
 }
 
 type Breed {

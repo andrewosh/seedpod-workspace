@@ -58,6 +58,7 @@ async function many (n, sameKey, sameFactory) {
   let first = null
 
   for (var i = 0; i < n; i++) {
+    console.log('CREATING MANY:', n)
     if (!sameFactory) factory = await makeFactory()
     let db = uniondb(factory, sameKey ? key : null, { valueEncoding: 'binary' })
     let tdb = typedb(db)

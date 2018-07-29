@@ -293,7 +293,6 @@ FunctionArg -> (%optionalParamName | %requiredParamName) (%singleParamType | %ar
 %}
 FunctionReturn -> (%singleFunctionType | %arrayFunctionType) {%
   ([[type]]) => {
-   console.log('TYPE:', type)
    return {
      isArray: (type.type === 'arrayFunctionType'),
      name: type.value

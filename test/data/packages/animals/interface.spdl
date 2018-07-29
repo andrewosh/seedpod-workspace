@@ -5,7 +5,7 @@ import {
 
 type Animal {
   name: string
-  limbCount: uint16
+  limbCount: uint32
   populationCount?: uint64
 }
 
@@ -17,7 +17,7 @@ type ExtinctAnimal extends Animal {
   extinctionDate: string
 }
 
-tag type AnimalTag {
+type AnimalTag {
   location: LocationTag
   lastUpdate?: uint64
 }
