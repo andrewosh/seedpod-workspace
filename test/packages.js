@@ -45,9 +45,8 @@ test('can publish an updated package', async t => {
   await db.publish('v1')
 
   let { manifest: man2, schema } = await db.packages.export()
-  console.log('FIELDS:', schema.messages.map(msg => msg.fields))
 
-  t.same(schema.messages[0].messages.length, 6)
+  t.same(schema.messages[0].messages.length, 7)
   t.same(schema.services[4].name, 'Location')
   t.same(man2.version, 'v1')
 
@@ -72,9 +71,9 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.updatePackage(iface, manifest)
 
   await db2.publish('v1')
-  let { manifest: man2, schema } = await db2.packages.export()
+  let { manifest: man2, schema, proto } = await db2.packages.export()
   t.same(man2.version, 'v1')
-  t.same(schema.messages[0].messages.length, 11)
+  t.same(schema.messages[0].messages.length, 20)
 
   await create.close()
   t.end()
@@ -111,7 +110,6 @@ test('can publish a package with multiple imports and a complicated interface', 
     key: datEncoding.encode(seedpodKey),
     version: 'v1'
   }
-  console.log('m2:', m2, 'i2:', i2)
   await db4.updatePackage(i2, m2)
   await db4.publish('v1')
 
@@ -119,7 +117,7 @@ test('can publish a package with multiple imports and a complicated interface', 
   console.log('COMPILED:', proto)
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
-  t.same(schema.messages[0].messages.length, 14)
+  t.same(schema.messages[0].messages.length, 25)
 
   await create.close()
   t.end()

@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/andrewosh/typed-hyperdb#readme",
   "devDependencies": {
+    "almost-equal": "^1.1.0",
     "fs-extra": "^7.0.0",
     "grpc-promise": "^1.1.0",
     "hyperdb": "^3.1.2",

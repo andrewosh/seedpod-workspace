@@ -41,12 +41,15 @@ function TypedHyperDB (db, opts) {
       this.key = this.db.key
 
       this.graph = pify(Graph(await this.db.sub(naming.GRAPH_ROOT)), {
-        include: ['put', 'get', 'del', 'search']
+        include: ['put', 'get', 'del']
       })
       this.triggers = await this.db.sub(naming.TRIGGERS_ROOT)
       this.fs = await this.db.sub(naming.FS_ROOT)
       this.packages = PackageManager(await this.db.sub(naming.PACKAGE_ROOT))
       this.records = RecordManager(this.graph, this.triggers, this.fs, this.packages)
+
+      await this.graph.db.index()
+      await this.fs.index()
 
       return resolve()
     } catch (err) {
