@@ -23,8 +23,8 @@ type AnimalTag {
 }
 
 query fourLimbedAnimals (): [Animal] {
-  SELECT * WHERE {
-    ?s Animal.limbCount ?o
-    FILTER (?o == 4)
+  SELECT * {
+    ?s field:Animal.limbCount ?o
+    FILTER (?o = 4)
   }
 }

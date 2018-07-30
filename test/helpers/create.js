@@ -13,7 +13,12 @@ let stores = []
 async function makeFactory () {
   var store = corestore(p.join(STORAGE_DIR, '' + idx++), {
     network: {
-      port: 5000 + idx++
+      port: 5000 + idx++,
+      swarm: {
+        dns: {
+          server: '35.230.87.226:9090'
+        }
+      }
     }
   })
   stores.push(store)

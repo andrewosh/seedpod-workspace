@@ -1,7 +1,6 @@
 import {
   Animal as OtherAnimal,
-  Human,
-  fourLimbedAnimals
+  Human
 } from 'animals'
 import {
   VIEW,
@@ -58,13 +57,13 @@ trigger oldWalkers (walker: Walker) {
 
 query breedsForWalker (walker: string): [Breed] {
   SELECT ?breed WHERE {
-    $walker Walker.walking ?o
-    ?o Dog.breed ?breed
+    $walker field:Walker.walking ?o.
+    ?o field:Dog.breed ?breed
   }
 }
 
 query linksToAnimals (): [Id] {
   SELECT ?o WHERE {
-    @types Animal ?o
+    ?o seedpod:is type:OtherAnimal
   }
 }
