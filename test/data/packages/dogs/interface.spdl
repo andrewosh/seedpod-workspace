@@ -55,7 +55,7 @@ trigger oldWalkers (walker: Walker) {
   }
 }
 
-query breedsForWalker (walker: string): [Breed] {
+query breedsForWalker (walker: Id): [Breed] {
   SELECT ?breed WHERE {
     $walker field:Walker.walking ?o.
     ?o field:Dog.breed ?breed

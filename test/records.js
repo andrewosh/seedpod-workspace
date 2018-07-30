@@ -104,6 +104,67 @@ test('can insert and get a complicated record with nested types', async t => {
   t.end()
 })
 
+test('can call a query', async t => {
+  let [client, handle] = await registerAndBind('dogs', 'query')
+
+  let doc1 = {
+    age: {
+      birthday: '9/28/2007',
+      age: 10
+    },
+    name: 'Rita',
+    walking: [
+      {
+        breed: {
+          name: 'Corgi',
+          // TODO: get the protobuf types for enum references etc
+          energy: 'HIGH'
+        },
+        name: 'Popchop',
+        limbCount: 3,
+        populationCount: 18000
+      }
+    ]
+  }
+
+  let doc2 = {
+    age: {
+      birthday: '9/28/1990',
+      age: 27
+    },
+    name: 'Fred',
+    walking: [
+      {
+        breed: {
+          name: 'Pug',
+          // TODO: get the protobuf types for enum references etc
+          energy: 'LOW'
+        },
+        name: 'Evan',
+        limbCount: 4,
+        populationCount: 40000
+      }
+    ]
+  }
+
+  let [_id1, _revs1] = await insert(t, client, doc1)
+  let [_id2] = await insert(t, client, doc2)
+  t.true(_id1)
+  t.true(_id2)
+  t.notEqual(_id1, _id2)
+
+  let breeds = await query(t, client, 'breedsForWalker', {
+    id: {
+      _id: _id1,
+      _revs: _revs1
+    }
+  })
+
+  t.same(breeds.length, 1)
+  t.same(breeds[0].name, 'Corgi')
+  t.end()
+})
+
 test('cleanup', async t => {
   await create.close()
   t.end()
@@ -147,6 +208,16 @@ async function get (t, client, _id, _revs) {
     })
 
     call.write({ _id, _revs })
+  })
+}
+
+async function query (t, client, name, input) {
+  return new Promise(async (resolve, reject) => {
+    client[name](input, (err, rsp) => {
+      if (err) return reject(err)
+      console.log('RSP:', rsp)
+      return resolve(rsp)
+    })
   })
 }
 
