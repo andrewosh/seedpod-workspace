@@ -49,7 +49,7 @@ action CreateWalker extends CREATE {
 }
 
 
-trigger oldWalkers (walker: Walker) {
+trigger oldWalkers (walker: Id) {
   selector: {
     age: { $gt: 80 }
   }

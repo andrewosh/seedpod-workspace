@@ -60,6 +60,7 @@
     "pumpify": "^1.5.1",
     "rxdb": "^7.6.1",
     "rxjs": "^6.2.1",
+    "shasum": "^1.0.2",
     "sparqljs": "^2.0.3",
     "subhyperdb": "^1.0.5",
     "through2": "^2.0.3",

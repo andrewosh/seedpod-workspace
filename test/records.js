@@ -105,7 +105,9 @@ test('can insert and get a complicated record with nested types', async t => {
 })
 
 test('can call a query', async t => {
-  let [client, handle] = await registerAndBind('dogs', 'query')
+  let [clients, handle] = await registerAndBind('dogs', ['Walker', 'query'])
+  let walkerClient = clients[0]
+  let queryClient = clients[1]
 
   let doc1 = {
     age: {
@@ -147,21 +149,28 @@ test('can call a query', async t => {
     ]
   }
 
-  let [_id1, _revs1] = await insert(t, client, doc1)
-  let [_id2] = await insert(t, client, doc2)
+  let [_id1, _revs1] = await insert(t, walkerClient, doc1)
+  let [_id2] = await insert(t, walkerClient, doc2)
   t.true(_id1)
   t.true(_id2)
   t.notEqual(_id1, _id2)
 
-  let breeds = await query(t, client, 'breedsForWalker', {
-    id: {
-      _id: _id1,
-      _revs: _revs1
+  console.log('_id1:', _id1)
+  console.log('_revs1', _revs1)
+
+  let breeds = await query(t, queryClient, 'breedsForWalker', {
+    walker: {
+      id: {
+        _id: _id1,
+        _revs: _revs1
+      }
     }
   })
 
   t.same(breeds.length, 1)
   t.same(breeds[0].name, 'Corgi')
+
+  await handle.close()
   t.end()
 })
 
@@ -246,7 +255,7 @@ async function createAndPublish (name) {
   }
 }
 
-async function registerAndBind (packageName, type) {
+async function registerAndBind (packageName, services) {
   let { db: appDb, version } = await createAndPublish(packageName)
   let key = datEncoding.encode(appDb.key)
 
@@ -258,9 +267,15 @@ async function registerAndBind (packageName, type) {
   let handle = await packageDb.bind(packageName, version)
 
   let root = await createRootClient(proto)
-  let client = new root[type](`localhost:${handle.port}`, grpc.credentials.createInsecure())
 
-  return [client, handle]
+  let clients = []
+  if (!(services instanceof Array)) services = [services]
+  for (let s of services) {
+    clients.push(new root[s](`localhost:${handle.port}`, grpc.credentials.createInsecure()))
+  }
+  if (clients.length === 1) clients = clients[0]
+
+  return [clients, handle]
 }
 
 async function createRootClient (schema) {
