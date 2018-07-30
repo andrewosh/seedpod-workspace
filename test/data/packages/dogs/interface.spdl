@@ -24,7 +24,7 @@ type Breed {
   energy?: Energy
 }
 
-type Dog extends Animal {
+type Dog extends OtherAnimal {
   breed: Breed
 }
 

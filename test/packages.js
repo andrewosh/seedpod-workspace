@@ -112,10 +112,10 @@ test('can publish a package with multiple imports and a complicated interface', 
   await db4.updatePackage(i2, m2)
   await db4.publish('v1', { skipVersioning: true })
 
-  let { manifest: m3, schema } = await db4.packages.export()
+  let { manifest: m3, schema, proto } = await db4.packages.export()
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
-  t.same(schema.messages[0].messages.length, 25)
+  t.same(schema.messages[0].messages.length, 21)
 
   await create.close()
   t.end()

@@ -125,6 +125,7 @@ async function insert (t, client, doc) {
     call.on('end', async () => {
       return resolve([_id, _revs])
     })
+    console.log('WRITING DOC:', doc)
     call.write(doc)
   })
 }
@@ -181,6 +182,7 @@ async function registerAndBind (packageName, type) {
   let packageDb = await create.one()
   await packageDb.install(key, version)
   let { proto } = await appDb.packages.export()
+  console.log('PROTO:', proto)
 
   let handle = await packageDb.bind(packageName, version)
 
