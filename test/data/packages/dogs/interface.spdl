@@ -50,7 +50,7 @@ action CreateWalker extends CREATE {
 
 trigger adultWalkers (walker: Walker) {
   selector: {
-    age: { age: { $gte: 18 } }
+    "age.age": { $gte: 18 }
   }
 }
 

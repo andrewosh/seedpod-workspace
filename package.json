@@ -56,6 +56,7 @@
     "pascal-case": "^2.0.1",
     "pify": "^3.0.0",
     "pouchdb-adapter-leveldb": "^6.4.3",
+    "pouchdb-selector-core": "^7.0.0",
     "protocol-buffers": "^4.0.4",
     "protocol-buffers-schema": "^3.3.2",
     "pump": "^3.0.0",
