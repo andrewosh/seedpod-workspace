@@ -309,7 +309,7 @@ Trigger -> %trigger %triggerName TriggerType LeftBrace TriggerBody {%
     return {
       nodeType: 'trigger',
       name: name.value,
-      type: type,
+      returns: type,
       body: body
     }
   }
@@ -318,8 +318,8 @@ TriggerType -> %leftparen SingleTriggerType %rightparen {% ([, type, ]) => type 
 SingleTriggerType -> %requiredParamName %singleParamType {%
   ([name, type]) => {
     return {
-      typeName: name.value,
-      typeType: type.value
+      name: name.value,
+      type: type.value
     }
   }
 %}

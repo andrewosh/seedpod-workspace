@@ -15,6 +15,7 @@ async function makeFactory () {
     network: {
       port: 5000 + idx++,
       swarm: {
+        dht: false,
         dns: {
           server: '35.230.87.226:9090'
         }

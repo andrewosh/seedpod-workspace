@@ -48,17 +48,17 @@ action CreateWalker extends CREATE {
   returns: Walker
 }
 
-
-trigger oldWalkers (walker: Id) {
+trigger adultWalkers (walker: Walker) {
   selector: {
-    age: { $gt: 80 }
+    age: { age: { $gte: 18 } }
   }
 }
 
 query breedsForWalker (walker: Id): [Breed] {
   SELECT ?breed WHERE {
-    $walker field:Walker.walking ?o.
+    ?w field:Walker.walking ?o.
     ?o field:Dog.breed ?breed
+    FILTER regex(?w, $walker)
   }
 }
 

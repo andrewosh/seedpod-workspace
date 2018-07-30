@@ -5,6 +5,7 @@ const datEncoding = require('dat-encoding')
 const test = require('tape')
 const tmp = require('tmp-promise')
 const almostEqual = require('almost-equal')
+const through = require('through2')
 const grpc = require('grpc')
 
 const create = require('./helpers/create')
@@ -59,7 +60,7 @@ test.skip('can insert and get a single record for a simple type by ID (no revisi
   t.end()
 })
 
-test('can insert and get a complicated record with nested types', async t => {
+test.skip('can insert and get a complicated record with nested types', async t => {
   let [client, handle] = await registerAndBind('dogs', 'Walker')
 
   let doc = {
@@ -104,7 +105,7 @@ test('can insert and get a complicated record with nested types', async t => {
   t.end()
 })
 
-test('can call a query', async t => {
+test.skip('can call a query', async t => {
   let [clients, handle] = await registerAndBind('dogs', ['Walker', 'query'])
   let walkerClient = clients[0]
   let queryClient = clients[1]
@@ -155,23 +156,83 @@ test('can call a query', async t => {
   t.true(_id2)
   t.notEqual(_id1, _id2)
 
-  console.log('_id1:', _id1)
-  console.log('_revs1', _revs1)
 
   let breeds = await query(t, queryClient, 'breedsForWalker', {
     walker: {
-      id: {
-        _id: _id1,
-        _revs: _revs1
-      }
+      _id: _id1,
+      _revs: _revs1
     }
   })
 
   t.same(breeds.length, 1)
   t.same(breeds[0].name, 'Corgi')
+  t.same(breeds[0].energy, 'HIGH')
 
   await handle.close()
   t.end()
+})
+
+test('can register a simple trigger', async t => {
+  let [clients, handle] = await registerAndBind('dogs', ['Walker', 'trigger'])
+  let [walkerClient, triggerClient] = clients
+
+  let trigger = await triggerClient.adultWalkers()
+  trigger.on('data', walker => {
+    console.log('TRIGGER DATA:', walker)
+  })
+  trigger.on('error', err => {
+    t.fail(err)
+  })
+  trigger.on('end', async () => {
+    await handle.close()
+    t.end()
+  })
+
+  let doc1 = {
+    age: {
+      birthday: '9/28/2007',
+      age: 10
+    },
+    name: 'Rita',
+    walking: [
+      {
+        breed: {
+          name: 'Corgi',
+          // TODO: get the protobuf types for enum references etc
+          energy: 'HIGH'
+        },
+        name: 'Popchop',
+        limbCount: 3,
+        populationCount: 18000
+      }
+    ]
+  }
+
+  let doc2 = {
+    age: {
+      birthday: '9/28/1990',
+      age: 27
+    },
+    name: 'Fred',
+    walking: [
+      {
+        breed: {
+          name: 'Pug',
+          // TODO: get the protobuf types for enum references etc
+          energy: 'LOW'
+        },
+        name: 'Evan',
+        limbCount: 4,
+        populationCount: 40000
+      }
+    ]
+  }
+
+  let [_id1, _revs1] = await insert(t, walkerClient, doc1)
+  let [_id2] = await insert(t, walkerClient, doc2)
+  t.true(_id1)
+  t.true(_id2)
+  t.notEqual(_id1, _id2)
 })
 
 test('cleanup', async t => {
@@ -195,7 +256,6 @@ async function insert (t, client, doc) {
     call.on('end', async () => {
       return resolve([_id, _revs])
     })
-    console.log('WRITING DOC:', doc)
     call.write(doc)
   })
 }
@@ -224,8 +284,7 @@ async function query (t, client, name, input) {
   return new Promise(async (resolve, reject) => {
     client[name](input, (err, rsp) => {
       if (err) return reject(err)
-      console.log('RSP:', rsp)
-      return resolve(rsp)
+      return resolve(rsp.values)
     })
   })
 }
@@ -262,7 +321,6 @@ async function registerAndBind (packageName, services) {
   let packageDb = await create.one()
   await packageDb.install(key, version)
   let { proto } = await appDb.packages.export()
-  console.log('PROTO:', proto)
 
   let handle = await packageDb.bind(packageName, version)
 

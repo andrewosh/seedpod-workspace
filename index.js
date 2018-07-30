@@ -11,6 +11,7 @@ const Graph = require('hyper-graph-db')
 const PackageManager = require('./lib/packages')
 const RecordManager = require('./lib/records')
 
+const { getPrefixes } = require('./lib/util')
 const naming = require('./lib/naming')
 
 module.exports = TypedHyperDB
@@ -36,7 +37,7 @@ function TypedHyperDB (db, opts) {
       this.key = this.db.key
 
       this.graph = pify(Graph(await this.db.sub(naming.GRAPH_ROOT)), {
-        include: ['put', 'get', 'del']
+        include: ['get', 'put', 'del', 'search', 'query']
       })
       this.triggers = await this.db.sub(naming.TRIGGERS_ROOT)
       this.fs = await this.db.sub(naming.FS_ROOT)
