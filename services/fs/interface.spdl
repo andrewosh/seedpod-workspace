@@ -1,0 +1,13 @@
+type File {
+  name: string
+  stat: Stat
+  content: Bytes
+}
+
+type Stat {
+  mode: uint32
+  uid?: uint32
+  gid?: uint32
+  mtime?: uint64
+  ctime?: uint64
+}
