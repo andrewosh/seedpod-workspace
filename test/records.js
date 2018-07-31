@@ -12,7 +12,7 @@ const create = require('./helpers/create')
 
 const PACKAGE_ROOT = p.join(__dirname, 'data', 'packages')
 
-test.skip('can insert a single record for a simple type', async t => {
+test('can insert a single record for a simple type', async t => {
   let [client, handle] = await registerAndBind('location-tagger', 'Location')
 
   let doc = {
@@ -32,7 +32,7 @@ test.skip('can insert a single record for a simple type', async t => {
   t.end()
 })
 
-test.skip('can insert and get a single record for a simple type by ID (no revision)', async t => {
+test('can insert and get a single record for a simple type by ID (no revision)', async t => {
   let [client, handle] = await registerAndBind('location-tagger', 'Location')
 
   let doc = {
@@ -60,7 +60,7 @@ test.skip('can insert and get a single record for a simple type by ID (no revisi
   t.end()
 })
 
-test.skip('can insert and get a complicated record with nested types', async t => {
+test('can insert and get a complicated record with nested types', async t => {
   let [client, handle] = await registerAndBind('dogs', 'Walker')
 
   let doc = {
@@ -105,7 +105,7 @@ test.skip('can insert and get a complicated record with nested types', async t =
   t.end()
 })
 
-test.skip('can call a query', async t => {
+test('can call a query', async t => {
   let [clients, handle] = await registerAndBind('dogs', ['Walker', 'query'])
   let walkerClient = clients[0]
   let queryClient = clients[1]
@@ -240,6 +240,38 @@ test('can register a simple trigger', async t => {
   await trigger.cancel()
 
   // TODO: trigger out how to end this test neatly
+  await handle.close()
+  t.end()
+})
+
+test('can store/load bytes', async t => {
+  let [client, handle] = await registerAndBind('fs', 'File')
+
+  let content = await fs.readFile(p.join(__dirname, 'data', 'packages', 'fs', 'wearable.jpeg'))
+
+  let doc = {
+    name: 'wearable.jpeg',
+    stat: {
+      mode: 744,
+      uid: 0,
+      gid: 0,
+      mtime: Date.now(),
+      ctime: Date.now()
+    },
+    content: {
+      value: content
+    }
+  }
+
+  let [_id, _revs] = await insert(t, client, doc)
+  t.true(_id)
+  t.true(_revs)
+
+  let docs = await get(t, client, _id)
+  t.same(docs.values.length, 1)
+  let resultFile = docs.values[0]
+  t.true(resultFile.value.content.value.equals(content))
+
   await handle.close()
   t.end()
 })
