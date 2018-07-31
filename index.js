@@ -40,7 +40,10 @@ function TypedHyperDB (db, opts) {
         include: ['get', 'put', 'del', 'search', 'query']
       })
       this.triggers = await this.db.sub(naming.TRIGGERS_ROOT)
-      this.fs = await this.db.sub(naming.FS_ROOT)
+      this.fs = await this.db.sub(naming.FS_ROOT, {
+        contentFeed: true,
+        sparseContent: true
+      })
       this.packages = PackageManager(await this.db.sub(naming.PACKAGE_ROOT))
       this.records = RecordManager(this.graph, this.triggers, this.fs, this.packages)
 

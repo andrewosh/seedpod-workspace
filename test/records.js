@@ -178,10 +178,11 @@ test('can register a simple trigger', async t => {
 
   let trigger = await triggerClient.adultWalkers()
   trigger.on('data', walker => {
-    console.log('TRIGGER DATA:', walker)
+    t.same(walker.age.age, 27)
+    t.same(walker.name, 'Fred')
   })
   trigger.on('error', err => {
-    t.fail(err)
+    t.same(err.details, 'Cancelled')
   })
   trigger.on('end', async () => {
     await handle.close()
@@ -228,11 +229,19 @@ test('can register a simple trigger', async t => {
     ]
   }
 
-  let [_id1, _revs1] = await insert(t, walkerClient, doc1)
+  let [_id1] = await insert(t, walkerClient, doc1)
   let [_id2] = await insert(t, walkerClient, doc2)
   t.true(_id1)
   t.true(_id2)
   t.notEqual(_id1, _id2)
+
+  // The trigger will never end unless we explicitly stop it after a delay.
+  await delay(300)
+  await trigger.cancel()
+
+  // TODO: trigger out how to end this test neatly
+  await handle.close()
+  t.end()
 })
 
 test('cleanup', async t => {
@@ -340,4 +349,10 @@ async function createRootClient (schema) {
   let { path } = await tmp.file({ postfix: '.proto' })
   await fs.writeFile(path, schema, 'utf8')
   return grpc.load(path)
+}
+
+async function delay (ms) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => resolve(), ms)
+  })
 }
