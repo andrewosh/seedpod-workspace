@@ -76,6 +76,7 @@ const lexer = moo.states({
   },
   field: {
     SP: space,
+    fieldModifier: { match: /\@[a-zA-Z]+/ },
     requiredField,
     optionalField,
     singleType: Object.assign({}, singleType, { pop: true }),
@@ -215,10 +216,11 @@ TypeSignature -> (%type | %struct | %action) %typeName %typeParent:? Space:? {%
      }
   }
 %}
-Field -> (RequiredField | OptionalField) (SingleType | ArrayType) Space {%
-  ([[fieldName], [fieldType]]) => {
+Field -> (RequiredField | OptionalField) %fieldModifier:? (SingleType | ArrayType) Space {%
+  ([[fieldName], modifier, [fieldType]]) => {
     return {
       fieldName: fieldName.value,
+      modifier: modifier ? modifier.value.slice(1) : null,
       isOptional: (fieldName.type === 'optionalField'),
       fieldType: fieldType.value,
       isArray: (fieldType.type === 'arrayType')

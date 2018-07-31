@@ -11,3 +11,8 @@ type Stat {
   mtime?: uint64
   ctime?: uint64
 }
+
+type Extension {
+  file: @tag File
+  type: string
+}

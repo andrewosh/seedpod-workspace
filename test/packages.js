@@ -45,7 +45,7 @@ test('can publish an updated package', async t => {
 
   let { manifest: man2, schema } = await db.packages.export()
 
-  t.same(schema.messages[0].messages.length, 7)
+  t.same(schema.messages[0].messages.length, 8)
   t.same(schema.services[4].name, 'Location')
   t.same(man2.version, 'v1')
 
@@ -72,7 +72,7 @@ test('can publish a package with a simple import and alias', async t => {
   await db2.publish('v1', { skipVersioning: true })
   let { manifest: man2, schema } = await db2.packages.export()
   t.same(man2.version, 'v1')
-  t.same(schema.messages[0].messages.length, 20)
+  t.same(schema.messages[0].messages.length, 22)
 
   await create.close()
   t.end()
@@ -115,7 +115,7 @@ test('can publish a package with multiple imports and a complicated interface', 
   let { manifest: m3, schema } = await db4.packages.export()
   t.same(m3.version, 'v1')
   // TODO: test the resulting schema structure.
-  t.same(schema.messages[0].messages.length, 21)
+  t.same(schema.messages[0].messages.length, 24)
 
   await create.close()
   t.end()

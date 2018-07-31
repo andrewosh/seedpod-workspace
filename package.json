@@ -8,7 +8,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "standard && tape test/*.js && rimraf test/test-storage"
+    "test": "tape test/*.js && rimraf test/test-storage"
   },
   "repository": {
     "type": "git",
