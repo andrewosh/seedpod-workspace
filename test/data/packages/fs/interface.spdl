@@ -16,3 +16,10 @@ type Extension {
   file: @tag File
   type: string
 }
+
+query extensionsForFile (file: Id): [Extension] {
+  SELECT ?ext WHERE {
+    ?ext field:Extension.file ?f 
+    FILTER regex(?f, $walker)
+  }
+}

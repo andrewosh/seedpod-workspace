@@ -5,7 +5,6 @@ const datEncoding = require('dat-encoding')
 const test = require('tape')
 const tmp = require('tmp-promise')
 const almostEqual = require('almost-equal')
-const through = require('through2')
 const grpc = require('grpc')
 
 const create = require('./helpers/create')
@@ -156,7 +155,6 @@ test('can call a query', async t => {
   t.true(_id2)
   t.notEqual(_id1, _id2)
 
-
   let breeds = await query(t, queryClient, 'breedsForWalker', {
     walker: {
       _id: _id1,
@@ -250,7 +248,7 @@ test('can store/load bytes', async t => {
   let content = await fs.readFile(p.join(__dirname, 'data', 'packages', 'fs', 'wearable.jpeg'))
 
   let doc = {
-    name: 'wearable.jpeg',
+    name: 'wearable',
     stat: {
       mode: 744,
       uid: 0,
@@ -271,6 +269,60 @@ test('can store/load bytes', async t => {
   t.same(docs.values.length, 1)
   let resultFile = docs.values[0]
   t.true(resultFile.value.content.value.equals(content))
+
+  await handle.close()
+  t.end()
+})
+
+test('can create tag fields', async t => {
+  let [clients, handle] = await registerAndBind('fs', ['File', 'Extension', 'query'])
+  let [fileClient, extClient, queryClient] = clients
+
+  let content = await fs.readFile(p.join(__dirname, 'data', 'packages', 'fs', 'wearable.jpeg'))
+
+  let doc = {
+    name: 'wearable',
+    stat: {
+      mode: 744,
+      uid: 0,
+      gid: 0,
+      mtime: Date.now(),
+      ctime: Date.now()
+    },
+    content: {
+      value: content
+    }
+  }
+
+  let [_id, _revs] = await insert(t, fileClient, doc)
+  t.true(_id)
+  t.true(_revs.length)
+
+  let docs = await get(t, fileClient, _id)
+  t.same(docs.values.length, 1)
+  let resultFile = docs.values[0].value
+  t.true(resultFile.content.value.equals(content))
+
+  let ext = {
+    file: resultFile,
+    type: 'jpeg'
+  }
+
+  let [_id2, _revs2] = await insert(t, extClient, ext)
+  t.true(_id2)
+  t.true(_revs2.length)
+
+  // If the tag type isn't working correctly, the File will be recreated so the resulting Extension
+  // will point to a different revision (other than _revs[0])
+  let extensions = await query(t, queryClient, 'extensionsForFile', {
+    file: {
+      _id: _id,
+      _revs: _revs
+    }
+  })
+  t.same(extensions.length, 1)
+  t.same(extensions[0].type, 'jpeg')
+  t.same(extensions[0].file._revs, _revs)
 
   await handle.close()
   t.end()

@@ -220,7 +220,7 @@ Field -> (RequiredField | OptionalField) %fieldModifier:? (SingleType | ArrayTyp
   ([[fieldName], modifier, [fieldType]]) => {
     return {
       fieldName: fieldName.value,
-      modifier: modifier ? modifier.value.slice(1) : null,
+      isTag: !!(modifier && modifier.value === '@tag'),
       isOptional: (fieldName.type === 'optionalField'),
       fieldType: fieldType.value,
       isArray: (fieldType.type === 'arrayType')
